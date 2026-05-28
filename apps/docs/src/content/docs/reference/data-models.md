@@ -15,7 +15,7 @@ One row per chat thread.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | Conversation id (referenced by inference logs). |
-| `userId` | UUID | Owner; links to the auth user. |
+| `userId` | text | Owner; foreign key to Better Auth `user.id`. |
 | `title` | string | Display title, derived from the first message. |
 | `status` | enum | `active` \| `cancelled` - drives the UI list/resume/cancel. |
 | `model` | string | Default model for the thread. |
@@ -23,9 +23,13 @@ One row per chat thread.
 | `updatedAt` | timestamp | Bumped on each new message; used to sort the list. |
 
 ```ts
+import { user } from "./auth";
+
 export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull().default("New conversation"),
   status: text("status").notNull().default("active"),
   model: text("model").notNull(),
@@ -49,16 +53,20 @@ unbounded while reads stay efficient through indexed `conversationId` lookups.
 | `createdAt` | timestamp | Orders the thread. |
 
 ```ts
-export const messages = pgTable("messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  conversationId: uuid("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
-  content: text("content").notNull(),
-  inferenceEventId: text("inference_event_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    inferenceEventId: text("inference_event_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("messages_conversation_id_idx").on(table.conversationId)]
+);
 ```
 
 ## Relationships
