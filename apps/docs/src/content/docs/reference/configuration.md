@@ -22,11 +22,6 @@ rather than at first use.
 | `LOG_PREVIEW_CHARS` | no | `200` | Max characters kept in input/output previews. |
 | `NODE_ENV` | no | `development` | Runtime mode. |
 
-:::caution
-`CLICKHOUSE_URL`, `REDIS_URL`, and `OPENROUTER_API_KEY` are additions on top of the scaffold's
-defaults. Add them to `packages/env/src/server.ts` and to `apps/server/.env` before running.
-:::
-
 ## Services
 
 | Service | Default port | Provided by |
