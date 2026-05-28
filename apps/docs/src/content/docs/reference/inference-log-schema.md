@@ -1,0 +1,99 @@
+---
+title: Inference Log Schema
+description: The structured inference event, its fields, and the ClickHouse table definition.
+---
+
+The inference log is the single structured event emitted for every LLM call. Field names follow
+the [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+where one exists. For the reasoning behind this shape, see
+[Schema design & tradeoffs](/explanation/schema-design-and-tradeoffs/).
+
+## Event fields
+
+| Field | Type | Source | Notes |
+|---|---|---|---|
+| `event_id` | UUID | SDK | Unique per inference; used for dedupe. |
+| `conversation_id` | UUID | caller | Links to the PostgreSQL conversation. |
+| `message_id` | UUID | caller | Links to the assistant message this call produced. |
+| `session_id` | string | caller | Optional client/session grouping. |
+| `gen_ai.system` | string | SDK | Provider, e.g. `openai`, `anthropic`, `openrouter`. |
+| `gen_ai.request.model` | string | caller | Requested model id. |
+| `gen_ai.response.model` | string | provider | Model that actually served the request. |
+| `gen_ai.usage.input_tokens` | uint32 | provider | Prompt tokens. |
+| `gen_ai.usage.output_tokens` | uint32 | provider | Completion tokens. |
+| `latency_ms` | uint32 | SDK | Total wall-clock duration of the call. |
+| `time_to_first_token_ms` | uint32 | SDK | Streaming only; null otherwise. |
+| `stream` | bool | SDK | Whether the response was streamed. |
+| `status` | enum | SDK | `success` \| `error` \| `cancelled`. |
+| `error.type` | string | SDK | Error class when `status = error` (e.g. `timeout`, `rate_limit`). |
+| `input_preview` | string | SDK | Truncated, **PII-redacted** prompt preview. |
+| `output_preview` | string | SDK | Truncated, **PII-redacted** completion preview. |
+| `cost_usd` | float64 | worker | Derived from token counts × model price. |
+| `start_time` | DateTime64 | SDK | UTC start timestamp. |
+| `created_at` | DateTime64 | worker | UTC ingestion timestamp. |
+
+:::note
+`cost_usd` and `error` classification are *derived* by the ingestion worker, not sent by the
+SDK. Keeping derivation server-side means pricing tables and error taxonomies can change without
+shipping a new SDK.
+:::
+
+## ClickHouse table
+
+```sql
+CREATE TABLE inference_logs (
+  event_id              UUID,
+  conversation_id       UUID,
+  message_id            UUID,
+  session_id            String,
+  gen_ai_system         LowCardinality(String),
+  gen_ai_request_model  LowCardinality(String),
+  gen_ai_response_model LowCardinality(String),
+  input_tokens          UInt32,
+  output_tokens         UInt32,
+  latency_ms            UInt32,
+  time_to_first_token_ms Nullable(UInt32),
+  stream                Bool,
+  status                LowCardinality(String),
+  error_type            String DEFAULT '',
+  input_preview         String,
+  output_preview        String,
+  cost_usd              Float64 DEFAULT 0,
+  start_time            DateTime64(3, 'UTC'),
+  created_at            DateTime64(3, 'UTC') DEFAULT now64()
+)
+ENGINE = MergeTree
+PARTITION BY toDate(start_time)
+ORDER BY (gen_ai_system, gen_ai_request_model, start_time);
+```
+
+### Why these choices
+
+- **`MergeTree` + `PARTITION BY toDate(start_time)`** — append-only, partitioned by day so
+  retention windows can be dropped a partition at a time and dashboard scans skip irrelevant
+  days.
+- **`ORDER BY (system, model, start_time)`** — the primary index matches the most common
+  dashboard filters (by provider, by model, over a time range).
+- **`LowCardinality(String)`** for provider/model/status — these have few distinct values, so
+  ClickHouse stores them as dictionaries for faster filtering and smaller storage.
+
+## Example event (JSON on the wire)
+
+```json
+{
+  "event_id": "0e3b...",
+  "conversation_id": "a91c...",
+  "message_id": "77f2...",
+  "gen_ai.system": "openrouter",
+  "gen_ai.request.model": "anthropic/claude-sonnet",
+  "gen_ai.usage.input_tokens": 412,
+  "gen_ai.usage.output_tokens": 188,
+  "latency_ms": 2310,
+  "time_to_first_token_ms": 540,
+  "stream": true,
+  "status": "success",
+  "input_preview": "Summarise the attached report…",
+  "output_preview": "The report covers three themes…",
+  "start_time": "2026-05-27T18:04:11.220Z"
+}
+```

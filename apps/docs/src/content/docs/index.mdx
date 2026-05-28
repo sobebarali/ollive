@@ -1,0 +1,45 @@
+---
+title: Ollive Documentation
+description: A lightweight LLM inference logging and ingestion system — docs organised by the Diátaxis framework.
+template: splash
+hero:
+  tagline: A chatbot plus a purpose-built pipeline that logs every inference and turns it into dashboards.
+  actions:
+    - text: Run it locally
+      link: /tutorials/run-the-system-locally/
+      icon: right-arrow
+    - text: Understand the architecture
+      link: /explanation/architecture-overview/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Ollive is a multi-turn chatbot wrapped in a lightweight SDK that captures inference metadata
+(model, provider, latency, token usage, status, previews) and ships it through an event-based
+ingestion pipeline into purpose-fit storage, with latency / throughput / error dashboards on top.
+
+These docs follow the [Diátaxis](https://diataxis.fr) framework — find what you need by what you
+are trying to do right now:
+
+<CardGrid stagger>
+  <Card title="Tutorials — learn by doing" icon="rocket">
+    Start here. [Run the system locally](/tutorials/run-the-system-locally/) takes you from clone
+    to watching your first inference log appear on a dashboard.
+  </Card>
+  <Card title="How-to guides — get a task done" icon="setting">
+    Recipes for specific jobs: [instrument an LLM call](/guides/instrument-an-llm-call/),
+    [add a provider](/guides/add-an-llm-provider/), [enable PII redaction](/guides/enable-pii-redaction/).
+  </Card>
+  <Card title="Reference — look up the facts" icon="list-format">
+    Precise specs: the [inference log schema](/reference/inference-log-schema/),
+    [data models](/reference/data-models/), and [configuration](/reference/configuration/).
+  </Card>
+  <Card title="Explanation — understand the why" icon="open-book">
+    The design: [architecture](/explanation/architecture-overview/),
+    [logging & ingestion flow](/explanation/logging-and-ingestion-flow/),
+    [schema tradeoffs](/explanation/schema-design-and-tradeoffs/),
+    [scaling & failure handling](/explanation/scaling-and-failure-handling/).
+  </Card>
+</CardGrid>

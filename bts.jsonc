@@ -1,0 +1,31 @@
+// Better-T-Stack
+//
+// Website: https://www.better-t-stack.dev/
+// Stack Builder: https://www.better-t-stack.dev/new
+// Analytics: https://www.better-t-stack.dev/analytics
+// Showcase: https://www.better-t-stack.dev/showcase
+// Sponsor: https://github.com/sponsors/AmanVarshney01
+//
+// Add new addons with: bun create better-t-stack add
+// This file is safe to delete
+
+{
+  "$schema": "https://r2.better-t-stack.dev/schema.json",
+  "version": "3.30.3",
+  "createdAt": "2026-05-28T14:25:21.037Z",
+  "reproducibleCommand": "bun create better-t-stack@latest . --frontend tanstack-router --backend hono --runtime node --database postgres --orm drizzle --api orpc --auth better-auth --payments none --addons turborepo ultracite starlight evlog skills mcp --examples ai todo --db-setup none --web-deploy none --server-deploy none --no-git --package-manager bun --install",
+  "database": "postgres",
+  "orm": "drizzle",
+  "backend": "hono",
+  "runtime": "node",
+  "frontend": ["tanstack-router"],
+  "addons": ["turborepo", "ultracite", "starlight", "evlog", "skills", "mcp"],
+  "examples": ["ai", "todo"],
+  "auth": "better-auth",
+  "payments": "none",
+  "packageManager": "bun",
+  "dbSetup": "none",
+  "api": "orpc",
+  "webDeploy": "none",
+  "serverDeploy": "none"
+}
