@@ -1,49 +1,20 @@
-# Starlight Starter Kit: Basics
+# Ollive Docs
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+This Starlight app contains the architecture notes, references, and tutorials for the Ollive LLM
+inference logging system.
 
-```
-bun create astro@latest -- --template starlight
-```
+For the ordered development checklist, start with the root
+[`IMPLEMENTATION.md`](../../IMPLEMENTATION.md). That guide maps `GOAL.md` to concrete build steps
+and links back to these docs for architecture, schema, configuration, and ingestion details.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Local Commands
 
-## 🚀 Project Structure
+Run these commands from `apps/docs`:
 
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+```bash
+bun run dev
+bun run build
+bun run preview
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
-
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
-
-Static assets, like favicons, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command               | Action                                           |
-| :-------------------- | :----------------------------------------------- |
-| `bun install`         | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
-| `bun build`           | Build your production site to `./dist/`          |
-| `bun preview`         | Preview your build locally, before deploying     |
-| `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `bun astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+The content lives in `src/content/docs`.
