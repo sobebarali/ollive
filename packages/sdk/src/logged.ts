@@ -6,6 +6,8 @@ import type { InferenceEvent, InferenceStatus } from "./event";
 import { redactPreview } from "./redact";
 
 export interface LoggedContext {
+  /** True when the call used the user's own API key (self-billed, exempt from the shared cap). */
+  byok?: boolean;
   conversationId: string;
   /** Override the generated event id (e.g. to reuse a reserved id). */
   eventId?: string;
@@ -146,6 +148,7 @@ export function finalize(args: FinalizeArgs): void {
     }),
     output_preview: redactPreview(args.meta?.text ?? "", { maxChars, enabled }),
     start_time: args.startTime,
+    byok: args.context.byok ?? false,
   };
   // Fire-and-forget: emit after the caller has its result so the call site is not slowed.
   emitEvent(event).catch((error) => {

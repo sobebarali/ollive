@@ -30,6 +30,9 @@ export const inferenceEventSchema = z.object({
   input_preview: z.string(),
   output_preview: z.string(),
   start_time: z.iso.datetime(),
+  /** True when the call used the user's own API key. Such calls are self-billed and the worker does
+   * not count them against the shared free-tier cap. Optional so older queued events still parse. */
+  byok: z.boolean().optional(),
 });
 
 export type InferenceEvent = z.infer<typeof inferenceEventSchema>;
