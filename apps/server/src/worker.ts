@@ -1,17 +1,19 @@
 import { createClient } from "@clickhouse/client";
 import { getModelPrice } from "@ollive/api/models";
 import { db } from "@ollive/db";
-import { messages } from "@ollive/db/schema/conversation";
+import { userKeys } from "@ollive/db/schema/byok";
+import { conversations, messages } from "@ollive/db/schema/conversation";
 import { env } from "@ollive/env/server";
 import {
   type InferenceEvent,
   inferenceEventSchema,
   STREAM_KEY,
 } from "@ollive/sdk";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import Redis from "ioredis";
 import { classifyError } from "./worker/error-class";
 import { deriveCost } from "./worker/pricing";
+import { sumSharedSpendByConversation } from "./worker/spend";
 
 const GROUP = "ingestion";
 const CONSUMER = "worker-1";
@@ -176,6 +178,52 @@ async function linkMessages(events: InferenceEvent[]): Promise<void> {
   );
 }
 
+/**
+ * Add shared-key spend to each user's running total so the chat path can enforce the free-tier cap
+ * from PostgreSQL (the chat path must not depend on ClickHouse). Best-effort; never blocks the ack.
+ */
+async function accrueSharedSpend(
+  events: InferenceEvent[],
+  rows: Awaited<ReturnType<typeof toRow>>[]
+): Promise<void> {
+  const perConversation = sumSharedSpendByConversation(
+    events.map((event, i) => ({
+      byok: event.byok,
+      conversationId: event.conversation_id,
+      costUsd: rows[i]?.cost_usd ?? 0,
+    }))
+  );
+  if (perConversation.size === 0) {
+    return;
+  }
+  try {
+    const owners = await db
+      .select({ id: conversations.id, userId: conversations.userId })
+      .from(conversations)
+      .where(inArray(conversations.id, [...perConversation.keys()]));
+    const perUser = new Map<string, number>();
+    for (const { id, userId } of owners) {
+      const micro = perConversation.get(id) ?? 0;
+      perUser.set(userId, (perUser.get(userId) ?? 0) + micro);
+    }
+    await Promise.all(
+      [...perUser].map(([userId, micro]) =>
+        db
+          .insert(userKeys)
+          .values({ userId, sharedSpentMicroUsd: micro })
+          .onConflictDoUpdate({
+            target: userKeys.userId,
+            set: {
+              sharedSpentMicroUsd: sql`${userKeys.sharedSpentMicroUsd} + ${micro}`,
+            },
+          })
+      )
+    );
+  } catch (error) {
+    console.error("[ollive/worker] failed to accrue shared spend", error);
+  }
+}
+
 async function processBatch(entries: StreamEntry[]): Promise<void> {
   const ackIds: string[] = [];
   const valid: { id: string; event: InferenceEvent }[] = [];
@@ -203,7 +251,9 @@ async function processBatch(entries: StreamEntry[]): Promise<void> {
     const rows = await Promise.all(valid.map(({ event }) => toRow(event)));
     const inserted = await insertWithRetry(rows);
     if (inserted) {
-      await linkMessages(valid.map(({ event }) => event));
+      const events = valid.map(({ event }) => event);
+      await linkMessages(events);
+      await accrueSharedSpend(events, rows);
     } else {
       // Retries exhausted: park the batch in the write DLQ so the main stream is not blocked.
       for (const { event } of valid) {

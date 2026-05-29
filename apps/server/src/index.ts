@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { createContext } from "@ollive/api/context";
+import { decryptSecret } from "@ollive/api/crypto";
 import { isAllowedModel } from "@ollive/api/models";
 import { appRouter } from "@ollive/api/routers/index";
 import { auth } from "@ollive/auth";
 import { db } from "@ollive/db";
+import { userKeys } from "@ollive/db/schema/byok";
 import { conversations, messages } from "@ollive/db/schema/conversation";
 import { env } from "@ollive/env/server";
 import { streamLogger } from "@ollive/sdk";
@@ -133,7 +135,35 @@ function latestUserText(uiMessages: ChatUIMessage[]): string {
     .join("");
 }
 
-const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
+// Shared free-tier client built from the owner's key, reused across requests. Users who bring their
+// own key get a per-request client instead (see resolveProvider).
+const sharedOpenRouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
+const SHARED_LIMIT_MICRO = Math.round(env.SHARED_KEY_LIMIT_USD * 1_000_000);
+
+type ResolvedKey =
+  | { byok: true; provider: ReturnType<typeof createOpenRouter> }
+  | { byok: false; provider: ReturnType<typeof createOpenRouter> }
+  | { blocked: true };
+
+/** Pick the OpenRouter client for this user: their own key if set, else the shared key while they
+ * remain under the free-tier cap. Returns `blocked` once a shared-key user has spent their $1. */
+async function resolveKey(userId: string): Promise<ResolvedKey> {
+  const [row] = await db
+    .select()
+    .from(userKeys)
+    .where(eq(userKeys.userId, userId));
+
+  if (row?.encryptedKey) {
+    const apiKey = decryptSecret(row.encryptedKey);
+    return { byok: true, provider: createOpenRouter({ apiKey }) };
+  }
+
+  const spent = row?.sharedSpentMicroUsd ?? 0;
+  if (spent >= SHARED_LIMIT_MICRO) {
+    return { blocked: true };
+  }
+  return { byok: false, provider: sharedOpenRouter };
+}
 
 app.post("/ai", async (c) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
@@ -149,6 +179,16 @@ app.post("/ai", async (c) => {
   const { conversationId, model, messages: uiMessages } = parsed.data;
   if (!(await isAllowedModel(model))) {
     return c.json({ error: `Unknown model: ${model}` }, 400);
+  }
+
+  const resolved = await resolveKey(userId);
+  if ("blocked" in resolved) {
+    return c.json(
+      {
+        error: `Free $${env.SHARED_KEY_LIMIT_USD} limit reached — add your own OpenRouter key in Settings to keep chatting.`,
+      },
+      402
+    );
   }
 
   const [conversation] = await db
@@ -203,6 +243,7 @@ app.post("/ai", async (c) => {
     input: userText,
     system: "openrouter",
     stream: true,
+    byok: resolved.byok,
   });
 
   async function persistAssistant(content: string): Promise<void> {
@@ -224,7 +265,7 @@ app.post("/ai", async (c) => {
   }
 
   const result = streamText({
-    model: openrouter(model),
+    model: resolved.provider(model),
     messages: modelMessages,
     abortSignal: c.req.raw.signal,
     onChunk: logger.onChunk,
