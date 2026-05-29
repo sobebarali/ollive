@@ -1,4 +1,5 @@
 import { createDb } from "@ollive/db";
+// biome-ignore lint/performance/noNamespaceImport: better-auth's drizzleAdapter takes the auth schema as one object.
 import * as schema from "@ollive/db/schema/auth";
 import { env } from "@ollive/env/server";
 import { betterAuth } from "better-auth";
