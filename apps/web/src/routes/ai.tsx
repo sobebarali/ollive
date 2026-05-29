@@ -1,99 +1,65 @@
-import { useChat } from "@ai-sdk/react";
-import { env } from "@ollive/env/web";
-import { Button } from "@ollive/ui/components/button";
-import { Input } from "@ollive/ui/components/input";
-import { createFileRoute } from "@tanstack/react-router";
-import { DefaultChatTransport } from "ai";
-import { Send } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Streamdown } from "streamdown";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { ChatThread } from "@/components/chat/chat-thread";
+import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/ai")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    const session = await authClient.getSession();
+    if (!session.data) {
+      redirect({ to: "/login", throw: true });
+    }
+  },
 });
 
+interface Mount {
+  conversationId: string | null;
+  /** Stable React key for the mounted thread; only changes on new/select. */
+  key: string;
+}
+
 function RouteComponent() {
-  const [input, setInput] = useState("");
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: `${env.VITE_SERVER_URL}/ai`,
-    }),
-  });
+  const [mount, setMount] = useState<Mount>(() => ({
+    key: crypto.randomUUID(),
+    conversationId: null,
+  }));
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const handleNew = () => {
+    setSelectedConversationId(null);
+    setMount({ key: crypto.randomUUID(), conversationId: null });
+  };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const handleSelect = (id: string) => {
+    setSelectedConversationId(id);
+    setMount({ key: id, conversationId: id });
+  };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text) {
-      return;
-    }
-    sendMessage({ text });
-    setInput("");
+  // A draft just became a real conversation: highlight it in the sidebar without
+  // remounting the thread (which would tear down the in-flight stream).
+  const handleConversationCreated = (id: string) => {
+    setSelectedConversationId(id);
   };
 
   return (
-    <div className="mx-auto grid w-full grid-rows-[1fr_auto] overflow-hidden p-4">
-      <div className="space-y-4 overflow-y-auto pb-4">
-        {messages.length === 0 ? (
-          <div className="mt-8 text-center text-muted-foreground">
-            Ask me anything to get started!
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              className={`rounded-lg p-3 ${
-                message.role === "user"
-                  ? "ml-8 bg-primary/10"
-                  : "mr-8 bg-secondary/20"
-              }`}
-              key={message.id}
-            >
-              <p className="mb-1 font-semibold text-sm">
-                {message.role === "user" ? "You" : "AI Assistant"}
-              </p>
-              {message.parts?.map((part, index) => {
-                if (part.type === "text") {
-                  return (
-                    <Streamdown
-                      isAnimating={
-                        status === "streaming" && message.role === "assistant"
-                      }
-                      key={index}
-                    >
-                      {part.text}
-                    </Streamdown>
-                  );
-                }
-                return null;
-              })}
-            </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <form
-        className="flex w-full items-center space-x-2 border-t pt-2"
-        onSubmit={handleSubmit}
-      >
-        <Input
-          autoComplete="off"
-          autoFocus
-          className="flex-1"
-          name="prompt"
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          value={input}
+    <div className="flex h-full overflow-hidden">
+      <ChatSidebar
+        onNew={handleNew}
+        onSelect={handleSelect}
+        selectedConversationId={selectedConversationId}
+      />
+      <main className="min-w-0 flex-1">
+        <ChatThread
+          initialConversationId={mount.conversationId}
+          key={mount.key}
+          onConversationCreated={handleConversationCreated}
         />
-        <Button size="icon" type="submit">
-          <Send size={18} />
-        </Button>
-      </form>
+      </main>
     </div>
   );
 }
