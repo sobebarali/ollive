@@ -19,6 +19,7 @@ import {
   Monitor,
   Moon,
   ScrollText,
+  Settings,
   Sun,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/ai", label: "Chat", icon: MessageSquare },
   { to: "/dashboard", label: "Metrics", icon: BarChart3 },
   { to: "/logs", label: "Logs", icon: ScrollText },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar() {

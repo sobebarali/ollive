@@ -4,6 +4,7 @@ import { Button } from "@ollive/ui/components/button";
 import { Input } from "@ollive/ui/components/input";
 import { Skeleton } from "@ollive/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Send, Square } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +26,24 @@ interface ThreadMessage {
   content: string;
   id: string;
   role: string;
+}
+
+/** The /ai endpoint returns errors as JSON `{ error }`; useChat surfaces that body as the message.
+ * Unwrap it and flag the free-tier cap so the banner can link to Settings instead of offering Retry. */
+function friendlyError(error: Error): { message: string; capReached: boolean } {
+  let message = error.message || "Something went wrong.";
+  try {
+    const parsed = JSON.parse(message);
+    if (parsed && typeof parsed.error === "string") {
+      message = parsed.error;
+    }
+  } catch {
+    // message was not JSON; use it as-is.
+  }
+  return {
+    message,
+    capReached: message.toLowerCase().includes("limit reached"),
+  };
 }
 
 function toUIMessages(dbMessages: ThreadMessage[]): UIMessage[] {
@@ -215,21 +234,39 @@ function ChatThreadReady({
       />
 
       <div className="border-t bg-background">
-        {error && (
-          <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 pt-3 text-sm">
-            <span className="text-destructive">
-              {error.message || "Something went wrong."}
-            </span>
-            <div className="flex shrink-0 gap-2">
-              <Button onClick={() => regenerate()} size="sm" variant="outline">
-                Retry
-              </Button>
-              <Button onClick={() => clearError()} size="sm" variant="ghost">
-                Dismiss
-              </Button>
-            </div>
-          </div>
-        )}
+        {error &&
+          (() => {
+            const { message, capReached } = friendlyError(error);
+            return (
+              <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 pt-3 text-sm">
+                <span className="text-destructive">{message}</span>
+                <div className="flex shrink-0 gap-2">
+                  {capReached ? (
+                    <Link to="/settings">
+                      <Button size="sm" variant="outline">
+                        Add your key
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      onClick={() => regenerate()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Retry
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => clearError()}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         <form
           className="mx-auto flex w-full max-w-3xl items-center gap-2 p-4"
           onSubmit={handleSubmit}
