@@ -102,6 +102,11 @@ and identifiers. Filter by time range and status, and page through with Previous
 dashboard, logs are scoped to your own conversations and refresh every few seconds, so a new call
 appears once the ingestion worker has flushed it (within `INGESTION_FLUSH_MS`, ~5s by default).
 
+The chat page itself also carries a live **Inference logs** panel on the right (on wide screens):
+it polls the same `logs.list` procedure for the open conversation and refreshes every few seconds,
+so each reply's call — latency, tokens, cost, status, and previews — shows up beside the thread a
+moment after the worker ingests it.
+
 ## 8. Try the conversation controls
 
 Back in the UI:

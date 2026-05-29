@@ -8,6 +8,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ScrollText } from "lucide-react";
 import { useState } from "react";
 
+import { formatCost, formatMs, StatusBadge } from "@/components/log-shared";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/utils/orpc";
 
@@ -45,36 +46,6 @@ type StatusFilter = (typeof STATUSES)[number]["value"];
 
 const PAGE_SIZE = 50;
 const REFETCH_MS = 5000;
-
-function formatMs(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value)} ms`;
-}
-
-function formatCost(value: number): string {
-  if (value === 0) {
-    return "$0";
-  }
-  return `$${value < 0.01 ? value.toFixed(5) : value.toFixed(4)}`;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  success: "bg-primary/15 text-primary",
-  error: "bg-destructive/15 text-destructive",
-  cancelled: "bg-muted text-muted-foreground",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 font-medium text-xs",
-        STATUS_STYLES[status] ?? "bg-muted text-muted-foreground"
-      )}
-    >
-      {status}
-    </span>
-  );
-}
 
 function RouteComponent() {
   const [range, setRange] = useState<Range>("24h");

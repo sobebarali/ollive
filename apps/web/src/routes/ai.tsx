@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatThread } from "@/components/chat/chat-thread";
+import { ConversationLogPanel } from "@/components/chat/conversation-log-panel";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/ai")({
@@ -60,6 +61,7 @@ function RouteComponent() {
           onConversationCreated={handleConversationCreated}
         />
       </main>
+      <ConversationLogPanel conversationId={selectedConversationId} />
     </div>
   );
 }
