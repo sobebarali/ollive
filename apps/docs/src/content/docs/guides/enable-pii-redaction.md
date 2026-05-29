@@ -21,7 +21,7 @@ It is on by default. The toggle lives in [configuration](/reference/configuratio
 
 ```bash
 PII_REDACTION=on        # default; set to "off" only for local debugging
-LOG_PREVIEW_CHARS=200   # previews are truncated to this length before redaction
+LOG_PREVIEW_CHARS=200   # previews are truncated to this length after redaction
 ```
 
 ### 2. Understand what is redacted
@@ -34,6 +34,8 @@ The default redactor masks common patterns before truncation:
 | Phone | `+1 415 555 0132` → `[PHONE]` |
 | Credit-card-like | `4111 1111 1111 1111` → `[CARD]` |
 | Long digit runs | account/SSN-like → `[NUMBER]` |
+| Bearer token | `Bearer eyJhbGci...` → `[BEARER_TOKEN]` |
+| API key | `sk-...`, `AKIA...` → `[API_KEY]` |
 
 ### 3. Add a custom rule
 

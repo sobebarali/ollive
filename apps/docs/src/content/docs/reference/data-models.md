@@ -49,7 +49,7 @@ unbounded while reads stay efficient through indexed `conversationId` lookups.
 | `conversationId` | UUID | Parent thread; indexed for thread reads. |
 | `role` | enum | `user` \| `assistant` \| `system`. |
 | `content` | string | Message text. |
-| `inferenceEventId` | UUID | For assistant messages, links to the ClickHouse inference log. |
+| `inferenceEventId` | text | For assistant messages, links to the ClickHouse inference log `event_id`. |
 | `createdAt` | timestamp | Orders the thread. |
 
 ```ts
