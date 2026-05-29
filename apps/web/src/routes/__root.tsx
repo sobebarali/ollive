@@ -1,20 +1,17 @@
-import type { AppRouterClient } from "@ollive/api/routers/index";
 import { Toaster } from "@ollive/ui/components/sonner";
-import { createORPCClient } from "@orpc/client";
-import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
   HeadContent,
   Outlet,
+  useRouterState,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { useState } from "react";
 
-import Header from "@/components/header";
+import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
-import { link, type orpc } from "@/utils/orpc";
+import type { orpc } from "@/utils/orpc";
 
 import "../index.css";
 
@@ -28,25 +25,32 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "ollive",
+        title: "Ollive — LLM inference logging",
       },
       {
         name: "description",
-        content: "ollive is a web application",
+        content:
+          "Multi-turn chat, a structured logging SDK, and real-time latency, throughput, and error dashboards for LLM apps.",
       },
     ],
     links: [
       {
         rel: "icon",
-        href: "/favicon.ico",
+        href: "/favicon.svg",
+        type: "image/svg+xml",
       },
     ],
   }),
 });
 
+// Routes that render full-bleed without the app sidebar shell.
+const BARE_ROUTES = new Set(["/", "/login"]);
+
 function RootComponent() {
-  const [client] = useState<AppRouterClient>(() => createORPCClient(link));
-  const [orpcUtils] = useState(() => createTanstackQueryUtils(client));
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const bare = BARE_ROUTES.has(pathname);
 
   return (
     <>
@@ -57,10 +61,16 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="grid h-svh grid-rows-[auto_1fr]">
-          <Header />
+        {bare ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className="flex h-svh overflow-hidden">
+            <AppSidebar />
+            <main className="min-w-0 flex-1 overflow-y-auto">
+              <Outlet />
+            </main>
+          </div>
+        )}
         <Toaster richColors />
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-left" />

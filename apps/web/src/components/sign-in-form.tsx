@@ -57,8 +57,13 @@ export default function SignInForm({
   }
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-md p-6">
-      <h1 className="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
+    <div className="w-full">
+      <div className="mb-6">
+        <h1 className="font-semibold text-2xl tracking-tight">Welcome back</h1>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Sign in to continue to Ollive.
+        </p>
+      </div>
 
       <form
         className="space-y-4"
@@ -82,7 +87,7 @@ export default function SignInForm({
                   value={field.state.value}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
+                  <p className="text-destructive text-sm" key={error?.message}>
                     {error?.message}
                   </p>
                 ))}
@@ -105,7 +110,7 @@ export default function SignInForm({
                   value={field.state.value}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
+                  <p className="text-destructive text-sm" key={error?.message}>
                     {error?.message}
                   </p>
                 ))}
@@ -132,13 +137,10 @@ export default function SignInForm({
         </form.Subscribe>
       </form>
 
-      <div className="mt-4 text-center">
-        <Button
-          className="text-indigo-600 hover:text-indigo-800"
-          onClick={onSwitchToSignUp}
-          variant="link"
-        >
-          Need an account? Sign Up
+      <div className="mt-6 text-center text-muted-foreground text-sm">
+        Need an account?{" "}
+        <Button className="px-1" onClick={onSwitchToSignUp} variant="link">
+          Sign up
         </Button>
       </div>
     </div>

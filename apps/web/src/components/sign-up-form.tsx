@@ -60,8 +60,15 @@ export default function SignUpForm({
   }
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-md p-6">
-      <h1 className="mb-6 text-center font-bold text-3xl">Create Account</h1>
+    <div className="w-full">
+      <div className="mb-6">
+        <h1 className="font-semibold text-2xl tracking-tight">
+          Create your account
+        </h1>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Start logging and observing your LLM calls.
+        </p>
+      </div>
 
       <form
         className="space-y-4"
@@ -84,7 +91,7 @@ export default function SignUpForm({
                   value={field.state.value}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
+                  <p className="text-destructive text-sm" key={error?.message}>
                     {error?.message}
                   </p>
                 ))}
@@ -107,7 +114,7 @@ export default function SignUpForm({
                   value={field.state.value}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
+                  <p className="text-destructive text-sm" key={error?.message}>
                     {error?.message}
                   </p>
                 ))}
@@ -130,7 +137,7 @@ export default function SignUpForm({
                   value={field.state.value}
                 />
                 {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
+                  <p className="text-destructive text-sm" key={error?.message}>
                     {error?.message}
                   </p>
                 ))}
@@ -157,13 +164,10 @@ export default function SignUpForm({
         </form.Subscribe>
       </form>
 
-      <div className="mt-4 text-center">
-        <Button
-          className="text-indigo-600 hover:text-indigo-800"
-          onClick={onSwitchToSignIn}
-          variant="link"
-        >
-          Already have an account? Sign In
+      <div className="mt-6 text-center text-muted-foreground text-sm">
+        Already have an account?{" "}
+        <Button className="px-1" onClick={onSwitchToSignIn} variant="link">
+          Sign in
         </Button>
       </div>
     </div>

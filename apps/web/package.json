@@ -30,6 +30,7 @@
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "catalog:",
     "sonner": "^2.0.7",
     "streamdown": "^1.6.10",
     "zod": "catalog:"

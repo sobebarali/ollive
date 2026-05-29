@@ -13,6 +13,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@clickhouse/client": "catalog:",
     "@ollive/auth": "workspace:*",
     "@ollive/db": "workspace:*",
     "@ollive/env": "workspace:*",

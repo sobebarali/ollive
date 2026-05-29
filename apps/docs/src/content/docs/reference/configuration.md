@@ -24,11 +24,21 @@ rather than at first use.
 | `INGESTION_FLUSH_MS` | no | `5000` | Worker blocking read window; flushes a partial batch after this many ms. |
 | `NODE_ENV` | no | `development` | Runtime mode. |
 
+## Web client environment variables
+
+Client variables are prefixed with `VITE_` and validated in `packages/env/src/web.ts`.
+
+| Variable | Required | Example | Used by |
+|---|---|---|---|
+| `VITE_SERVER_URL` | yes | `http://localhost:3000` | API + chat base URL the web app calls. |
+| `VITE_DOCS_URL` | no | `http://localhost:4321` (default) | Target of the landing page "See how it works" link. |
+
 ## Services
 
 | Service | Default port | Provided by |
 |---|---|---|
 | Web app (TanStack Router) | 5173 | `apps/web` |
+| Docs (Astro Starlight) | 4321 | `apps/docs` |
 | API + chat (Hono / oRPC) | 3000 | `apps/server` |
 | Ingestion worker | n/a (no inbound port) | `apps/server` (worker entry) |
 | PostgreSQL | 5432 | Docker Compose |
