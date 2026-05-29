@@ -22,6 +22,8 @@ export const env = createEnv({
     CORS_ORIGIN: z.url(),
     PII_REDACTION: z.enum(["on", "off"]).default("on"),
     LOG_PREVIEW_CHARS: z.coerce.number().int().positive().default(200),
+    INGESTION_BATCH_SIZE: z.coerce.number().int().positive().default(500),
+    INGESTION_FLUSH_MS: z.coerce.number().int().positive().default(5000),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

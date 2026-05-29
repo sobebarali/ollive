@@ -20,6 +20,8 @@ rather than at first use.
 | `CORS_ORIGIN` | yes | `http://localhost:5173` | Allowed web origin. |
 | `PII_REDACTION` | no | `on` (default) | Toggle preview redaction. See the [how-to](/guides/enable-pii-redaction/). |
 | `LOG_PREVIEW_CHARS` | no | `200` | Max characters kept in input/output previews. |
+| `INGESTION_BATCH_SIZE` | no | `500` | Max events the worker drains per ClickHouse insert. |
+| `INGESTION_FLUSH_MS` | no | `5000` | Worker blocking read window; flushes a partial batch after this many ms. |
 | `NODE_ENV` | no | `development` | Runtime mode. |
 
 ## Services

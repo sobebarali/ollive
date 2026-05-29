@@ -36,24 +36,35 @@ cp apps/server/.env.example apps/server/.env
 Set at least `OPENROUTER_API_KEY`. The database, ClickHouse, and Valkey URLs already point at the
 Docker services. See [Configuration](/reference/configuration/) for the full list.
 
-## 3. Start everything with one command
+## 3. Start the backing services
 
 ```bash
 docker compose up
 ```
 
-This brings up PostgreSQL, ClickHouse, Valkey, the API + ingestion worker, and the web app together
-— the one-command setup. Wait until the logs show the API listening on `:3000` and the web app on
-`:5173`.
+This brings up PostgreSQL, ClickHouse, and Valkey. ClickHouse runs the init SQL on first boot, so
+the `inference_logs` table is ready. Wait until the health checks pass.
 
-## 4. Open the chatbot and send a message
+## 4. Start the apps and the ingestion worker
+
+In separate terminals:
+
+```bash
+bun run dev          # web app (:5173) + API (:3000)
+bun run dev:worker   # ingestion worker: drains Valkey → ClickHouse
+```
+
+The worker is a separate process so the chat path never depends on ClickHouse being available. It
+prints the stream and consumer group it is draining when it starts.
+
+## 5. Open the chatbot and send a message
 
 Open [http://localhost:5173](http://localhost:5173), start a new conversation, pick a model, and
 send a message. You should see the response stream in token by token.
 
 Send a couple more messages so the model has multi-turn context to work with.
 
-## 5. Watch your call become an inference log
+## 6. Watch your call become an inference log
 
 Open the dashboard route in the web app. Within about a second of your message, you should see:
 
@@ -73,7 +84,7 @@ You just observed the full path: **chat → SDK wrapper → Valkey stream → in
 ClickHouse → dashboard.** That is the
 [logging and ingestion flow](/explanation/logging-and-ingestion-flow/) end to end.
 
-## 6. Try the conversation controls
+## 7. Try the conversation controls
 
 Back in the UI:
 

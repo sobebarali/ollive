@@ -18,9 +18,9 @@ this true.
 |---|---|---|
 | LLM provider call | timeout / 5xx / rate limit | Surfaced to the user as a chat error **and** logged as an inference event with `error.type` set. Optional provider fallback (see below). |
 | Emit to buffer | Valkey unreachable | The SDK swallows the error (logging is best-effort) so the chat still returns; the emit failure is counted in a local metric, not raised to the user. |
-| Ingestion worker | worker crashes mid-batch | Stream consumer groups track acknowledgements; unacked events are redelivered when the worker restarts, so nothing is lost on a crash. |
-| Validation | payload malformed | Event is routed to a dead-letter stream rather than dropped, so bad data is inspectable and never blocks good data. |
-| ClickHouse write | DB down / slow | Worker retries with backoff; events stay in the stream (replayable) until the write succeeds. The chat path is unaffected because it already returned. |
+| Ingestion worker | worker crashes mid-batch | The `ingestion` consumer group tracks acknowledgements; a batch is only `XACK`ed after its rows are stored, so unacked events stay in the pending list and are redelivered when the worker restarts. The advancing group cursor is also what makes re-running the worker safe today: already-acked events are never re-read, so no duplicate rows. |
+| Validation | payload malformed | The event is routed to the validation dead-letter stream `inference:events:dead` (with the parse error attached) rather than dropped, so bad data is inspectable and never blocks good data. |
+| ClickHouse write | DB down / slow | Worker retries with exponential backoff and does **not** ack until the insert succeeds, so events stay replayable in the stream while ClickHouse is unavailable. A batch that exhausts its retries is parked in a separate write-failure stream `inference:events:dead:write` (distinct from the validation DLQ) and acked, so a stuck write never blocks the rest of the stream. The chat path is unaffected because it already returned. |
 
 ## Scaling considerations
 
@@ -48,7 +48,8 @@ this true.
 
 ## What we would add with more time
 
-At-least-once delivery guarantees with idempotent inserts (dedupe on event id), autoscaling the
-worker on stream lag, a materialized view for hot dashboard rollups, TTL-based retention on the
-log table, and Kubernetes deployment (the deferred bonus) with health/readiness probes on each
-tier.
+Fully idempotent inserts (dedupe on `event_id` so even a deliberate full stream replay cannot
+create duplicate rows — today's re-run safety comes from the consumer-group cursor, not from
+insert-time dedupe), autoscaling the worker on stream lag, a materialized view for hot dashboard
+rollups, TTL-based retention on the log table, and Kubernetes deployment (the deferred bonus) with
+health/readiness probes on each tier.

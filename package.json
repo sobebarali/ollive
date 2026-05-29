@@ -26,6 +26,7 @@
       "drizzle-orm": "^0.45.1",
       "@types/pg": "^8.16.0",
       "ioredis": "^5.4.1",
+      "@clickhouse/client": "^1.12.0",
       "@types/bun": "^1.3.5"
     }
   },
@@ -37,6 +38,7 @@
     "test": "turbo test",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
+    "dev:worker": "turbo -F server dev:worker",
     "db:push": "turbo -F @ollive/db db:push",
     "db:studio": "turbo -F @ollive/db db:studio",
     "db:generate": "turbo -F @ollive/db db:generate",

@@ -7,24 +7,30 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.mjs"
+    "dev:worker": "tsx watch src/worker.ts",
+    "start": "node dist/index.mjs",
+    "test": "bun test"
   },
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.2",
     "@ai-sdk/google": "^3.0.1",
+    "@clickhouse/client": "catalog:",
     "@hono/node-server": "^1.14.4",
     "@ollive/api": "workspace:*",
     "@ollive/auth": "workspace:*",
     "@ollive/db": "workspace:*",
     "@ollive/env": "workspace:*",
+    "@ollive/sdk": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "ai": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
     "evlog": "^2.14.1",
     "hono": "catalog:",
+    "ioredis": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
