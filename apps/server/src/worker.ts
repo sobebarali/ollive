@@ -66,6 +66,37 @@ async function toRow(event: InferenceEvent) {
   };
 }
 
+// Mirrors infra/clickhouse/001_inference_logs.sql (run by docker-compose locally). Applied on boot
+// so managed ClickHouse instances without the init-mount get the table too. Keep the two in sync.
+const INFERENCE_LOGS_DDL = `CREATE TABLE IF NOT EXISTS inference_logs (
+  event_id              UUID,
+  conversation_id       UUID,
+  message_id            UUID,
+  session_id            String,
+  gen_ai_system         LowCardinality(String),
+  gen_ai_request_model  LowCardinality(String),
+  gen_ai_response_model LowCardinality(String),
+  input_tokens          UInt32,
+  output_tokens         UInt32,
+  latency_ms            UInt32,
+  time_to_first_token_ms Nullable(UInt32),
+  stream                Bool,
+  status                LowCardinality(String),
+  error_type            String DEFAULT '',
+  input_preview         String,
+  output_preview        String,
+  cost_usd              Float64 DEFAULT 0,
+  start_time            DateTime64(3, 'UTC'),
+  created_at            DateTime64(3, 'UTC') DEFAULT now64()
+)
+ENGINE = MergeTree
+PARTITION BY toDate(start_time)
+ORDER BY (gen_ai_system, gen_ai_request_model, start_time)`;
+
+async function ensureSchema(): Promise<void> {
+  await clickhouse.command({ query: INFERENCE_LOGS_DDL });
+}
+
 async function ensureGroup(): Promise<void> {
   try {
     await redis.xgroup("CREATE", STREAM_KEY, GROUP, "$", "MKSTREAM");
@@ -185,6 +216,7 @@ function safeParse(
 }
 
 async function run(): Promise<void> {
+  await ensureSchema();
   await ensureGroup();
   console.log(
     `[ollive/worker] consuming ${STREAM_KEY} as ${GROUP}/${CONSUMER} (batch ${env.INGESTION_BATCH_SIZE}, flush ${env.INGESTION_FLUSH_MS}ms)`

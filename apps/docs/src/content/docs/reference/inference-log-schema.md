@@ -67,6 +67,11 @@ PARTITION BY toDate(start_time)
 ORDER BY (gen_ai_system, gen_ai_request_model, start_time);
 ```
 
+Locally this runs from `infra/clickhouse/001_inference_logs.sql`, mounted into the ClickHouse
+container on first boot. On managed ClickHouse (e.g. Railway) there is no init mount, so the
+ingestion worker also applies the same `CREATE TABLE IF NOT EXISTS` on startup. Keep the worker's
+embedded DDL and this file in sync.
+
 ### Why these choices
 
 - **`MergeTree` + `PARTITION BY toDate(start_time)`** — append-only, partitioned by day so
