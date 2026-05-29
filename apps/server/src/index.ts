@@ -62,6 +62,12 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
   plugins: [
     new OpenAPIReferencePlugin({
       schemaConverters: [new ZodToJsonSchemaConverter()],
+      // Behind Railway's TLS-terminating proxy the request reaches us over http, so the
+      // auto-derived server URL is http:// and the browser blocks every call as mixed content.
+      // Pin it to the public base instead.
+      specGenerateOptions: {
+        servers: [{ url: `${env.BETTER_AUTH_URL}/api-reference` }],
+      },
     }),
   ],
   interceptors: [

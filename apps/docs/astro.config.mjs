@@ -7,16 +7,11 @@ import { defineConfig } from "astro/config";
 export default defineConfig({
   site: "https://docs-production-368b.up.railway.app",
   // `astro preview` binds Railway's injected PORT (host 0.0.0.0); 4321 locally.
+  // allowedHosts:true lets Railway's proxy forward an arbitrary *.up.railway.app Host header.
   server: {
     host: true,
     port: Number(process.env.PORT) || 4321,
-  },
-  // `astro preview` runs through Vite, which rejects unknown Host headers. Railway's proxy
-  // forwards an arbitrary *.up.railway.app host, so allow it here.
-  vite: {
-    preview: {
-      allowedHosts: true,
-    },
+    allowedHosts: true,
   },
   integrations: [
     starlight({
