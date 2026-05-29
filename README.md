@@ -151,6 +151,52 @@ See [Scaling & failure handling](apps/docs/src/content/docs/explanation/scaling-
 - Autoscaling the worker on stream lag; broader multi-provider coverage and richer dashboards.
 - Kubernetes deployment (the deferred bonus in `IMPLEMENTATION.md` Step 11).
 
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and on pull
+requests: `bun install`, `check-types`, `build`, and the infra-free unit tests
+(`packages/sdk`, `apps/server/src`, and the mocked `packages/api` model tests). Lint (`bun run
+check`) runs as a non-blocking step that surfaces existing scaffold issues without failing the
+build. Integration tests that need PostgreSQL, ClickHouse, Valkey, and live OpenRouter are not run
+in CI — run them locally with `docker compose up` and `bun run test:integration`.
+
+## Deployment (Railway)
+
+The API server deploys to Railway from this repo. Build and start are defined in
+[`railway.json`](railway.json): Railpack installs with Bun, builds the server with
+`bun run build --filter=server`, and starts it with `node apps/server/dist/index.mjs`. The server
+binds to Railway's injected `PORT` (falling back to `3000` locally).
+
+The service needs backing data stores and these environment variables set in Railway (never commit
+real values):
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | PostgreSQL — add a Railway Postgres service and reference its URL |
+| `CLICKHOUSE_URL` | ClickHouse HTTP endpoint for inference analytics |
+| `REDIS_URL` | Valkey/Redis stream buffer (`redis://` or `rediss://`) |
+| `OPENROUTER_API_KEY` | OpenRouter API key for model calls |
+| `BETTER_AUTH_SECRET` | Auth signing secret, at least 32 characters |
+| `BETTER_AUTH_URL` | Public URL of the deployed server |
+| `CORS_ORIGIN` | Public URL of the web app |
+
+The server validates env at startup, so it crashes loudly if any required variable is missing. Run
+`bun run db:push` against the production `DATABASE_URL` once to create the schema.
+
+The full stack runs as separate Railway services from this one repo, each pointing at its own
+config file:
+
+| Service | Config | Build | Start |
+|---|---|---|---|
+| API | [`railway.json`](railway.json) | `bun run build --filter=server` | `node apps/server/dist/index.mjs` |
+| Worker | [`railway.worker.json`](railway.worker.json) | `bun run build --filter=server` | `node apps/server/dist/worker.mjs` |
+| Web | [`railway.web.json`](railway.web.json) | `bun run build --filter=web` | `bun run --filter=web serve` (Vite preview on `PORT`) |
+
+PostgreSQL, ClickHouse, and Valkey are managed Railway services; the app services reference their
+URLs. The worker and API share the same env schema, so both need the database, Redis, and
+OpenRouter variables. The web service needs `VITE_SERVER_URL` (the API's public URL) at build time,
+since Vite bakes it into the bundle.
+
 ## Repo structure
 
 ```text
