@@ -181,7 +181,15 @@ real values):
 | `CORS_ORIGIN` | Public URL of the web app |
 
 The server validates env at startup, so it crashes loudly if any required variable is missing. Run
-`bun run db:push` against the production `DATABASE_URL` once to create the schema.
+the schema once against the production database, overriding `DATABASE_URL` (use the Postgres
+service's public URL, since `*.railway.internal` is only reachable from inside Railway):
+
+```bash
+DATABASE_URL="<Postgres DATABASE_PUBLIC_URL>" bun run db:push
+```
+
+`turbo.json` lists `DATABASE_URL` in the `db:push` task `env` so the override reaches drizzle-kit;
+without it Turbo's strict env mode drops the override and the push silently hits your local DB.
 
 The full stack runs as separate Railway services from this one repo, each pointing at its own
 config file:
