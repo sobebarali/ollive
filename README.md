@@ -9,6 +9,19 @@ analytics, so the chat path never waits on (or breaks because of) the logging pa
 The deeper "why" lives in [`apps/docs`](apps/docs) (an Astro Starlight site). This README is the
 fast path from clone to a working local system.
 
+## Live demo
+
+Deployed on Railway:
+
+| Surface | URL |
+|---|---|
+| Web app (chat + dashboard) | <https://web-production-5b681.up.railway.app> |
+| API (OpenAPI reference at `/api-reference`) | <https://ollive-production-99e4.up.railway.app> |
+| Docs | <https://docs-production-368b.up.railway.app> |
+
+Sign up, start a chat, then open `/dashboard` to watch latency, throughput, and error metrics
+update within a second or two as the worker ingests each inference event.
+
 ## Architecture
 
 ```text
