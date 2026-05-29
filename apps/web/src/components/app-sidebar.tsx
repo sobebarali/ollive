@@ -12,11 +12,13 @@ import { Skeleton } from "@ollive/ui/components/skeleton";
 import { cn } from "@ollive/ui/lib/utils";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  BarChart3,
   LogOut,
   type LucideIcon,
   MessageSquare,
   Monitor,
   Moon,
+  ScrollText,
   Sun,
 } from "lucide-react";
 
@@ -32,6 +34,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/ai", label: "Chat", icon: MessageSquare },
+  { to: "/dashboard", label: "Metrics", icon: BarChart3 },
+  { to: "/logs", label: "Logs", icon: ScrollText },
 ];
 
 export function AppSidebar() {

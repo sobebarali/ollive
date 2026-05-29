@@ -94,6 +94,14 @@ You just observed the full path: **chat → SDK wrapper → Valkey stream → in
 ClickHouse → dashboard.** That is the
 [logging and ingestion flow](/explanation/logging-and-ingestion-flow/) end to end.
 
+Prefer the per-call detail to the aggregates? Open the **Logs** link in the sidebar (the `/logs`
+route). It lists individual inference events newest-first — one row per model call — instead of
+querying ClickHouse by hand. Each row shows the model, status, latency, time to first token, input
+and output tokens, and derived cost; click a row to expand the full redacted input/output previews
+and identifiers. Filter by time range and status, and page through with Previous / Next. Like the
+dashboard, logs are scoped to your own conversations and refresh every few seconds, so a new call
+appears once the ingestion worker has flushed it (within `INGESTION_FLUSH_MS`, ~5s by default).
+
 ## 8. Try the conversation controls
 
 Back in the UI:
