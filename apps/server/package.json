@@ -9,7 +9,8 @@
     "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "start": "node dist/index.mjs",
-    "test": "bun test"
+    "test": "bun test src",
+    "test:integration": "bun test tests/integration"
   },
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.2",
@@ -21,6 +22,7 @@
     "@ollive/db": "workspace:*",
     "@ollive/env": "workspace:*",
     "@ollive/sdk": "workspace:*",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
@@ -35,6 +37,7 @@
   },
   "devDependencies": {
     "@ollive/config": "workspace:*",
+    "@orpc/client": "catalog:",
     "@types/node": "catalog:",
     "tsdown": "^0.21.9",
     "tsx": "^4.19.2",

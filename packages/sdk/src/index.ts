@@ -14,3 +14,4 @@ export {
   redact,
   redactPreview,
 } from "./redact";
+export { type StreamLogger, stepsText, streamLogger } from "./stream";

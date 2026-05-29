@@ -32,10 +32,11 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo run dev dev:worker",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "test": "turbo test",
+    "test:integration": "turbo -F server test:integration",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
     "dev:worker": "turbo -F server dev:worker",

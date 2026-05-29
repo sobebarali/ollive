@@ -26,7 +26,7 @@ interface Usage {
   promptTokens?: number;
 }
 
-interface CallMetadata {
+export interface CallMetadata {
   inputTokens: number;
   outputTokens: number;
   responseModel?: string;
@@ -37,7 +37,7 @@ async function resolveMaybe<T>(value: T | Promise<T> | undefined) {
   return value === undefined ? undefined : await value;
 }
 
-function toCount(value: unknown): number {
+export function toCount(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
@@ -70,21 +70,21 @@ async function readMetadata(result: unknown): Promise<CallMetadata> {
   };
 }
 
-function isAbortError(error: unknown): boolean {
+export function isAbortError(error: unknown): boolean {
   return (
     error instanceof Error &&
     (error.name === "AbortError" || error.name === "TimeoutError")
   );
 }
 
-function errorType(error: unknown): string {
+export function errorType(error: unknown): string {
   if (error instanceof Error) {
     return error.name === "Error" ? error.message : error.name;
   }
   return "unknown";
 }
 
-interface FinalizeArgs {
+export interface FinalizeArgs {
   context: LoggedContext;
   errorType?: string;
   eventId: string;
@@ -95,7 +95,7 @@ interface FinalizeArgs {
   ttftMs?: number;
 }
 
-function finalize(args: FinalizeArgs): void {
+export function finalize(args: FinalizeArgs): void {
   const enabled = env.PII_REDACTION === "on";
   const maxChars = env.LOG_PREVIEW_CHARS;
   const event: InferenceEvent = {

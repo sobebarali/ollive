@@ -47,12 +47,12 @@ the `inference_logs` table is ready. Wait until the health checks pass.
 
 ## 4. Start the apps and the ingestion worker
 
-In separate terminals:
-
 ```bash
-bun run dev          # web app (:5173) + API (:3000)
-bun run dev:worker   # ingestion worker: drains Valkey → ClickHouse
+bun run dev   # web app (:5173) + API (:3000) + ingestion worker
 ```
+
+`bun run dev` starts the web app, the API, and the ingestion worker together. To run just the
+worker on its own, use `bun run dev:worker`.
 
 The worker is a separate process so the chat path never depends on ClickHouse being available. It
 prints the stream and consumer group it is draining when it starts.

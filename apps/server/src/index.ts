@@ -1,17 +1,21 @@
-import { devToolsMiddleware } from "@ai-sdk/devtools";
-import { google } from "@ai-sdk/google";
+import { randomUUID } from "node:crypto";
 import { createContext } from "@ollive/api/context";
+import { isAllowedModel } from "@ollive/api/models";
 import { appRouter } from "@ollive/api/routers/index";
 import { auth } from "@ollive/auth";
+import { db } from "@ollive/db";
+import { conversations, messages } from "@ollive/db/schema/conversation";
 import { env } from "@ollive/env/server";
+import { streamLogger } from "@ollive/sdk";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { convertToModelMessages, streamText, wrapLanguageModel } from "ai";
+import { streamText } from "ai";
+import { and, desc, eq } from "drizzle-orm";
 import { initLogger } from "evlog";
-import { createAILogger, createEvlogIntegration } from "evlog/ai";
 import {
   type BetterAuthInstance,
   createAuthMiddleware,
@@ -19,6 +23,11 @@ import {
 import { type EvlogVariables, evlog } from "evlog/hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { z } from "zod";
+import {
+  buildModelMessages,
+  CONTEXT_MESSAGES,
+} from "./chat/build-model-messages";
 
 initLogger({
   env: { service: "ollive-server" },
@@ -94,20 +103,133 @@ app.use("/*", async (c, next) => {
   await next();
 });
 
+const chatRequestSchema = z.object({
+  conversationId: z.uuid(),
+  model: z.string(),
+  messages: z.array(
+    z.object({
+      role: z.string(),
+      parts: z
+        .array(z.object({ type: z.string(), text: z.string().optional() }))
+        .optional(),
+    })
+  ),
+});
+
+type ChatUIMessage = z.infer<typeof chatRequestSchema>["messages"][number];
+
+/** The text of the newest user turn; chat context is otherwise loaded from PostgreSQL. */
+function latestUserText(uiMessages: ChatUIMessage[]): string {
+  const last = uiMessages.findLast((message) => message.role === "user");
+  return (last?.parts ?? [])
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join("");
+}
+
+const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
+
 app.post("/ai", async (c) => {
-  const body = await c.req.json();
-  const uiMessages = body.messages || [];
-  const ai = createAILogger(c.get("log"));
-  const model = wrapLanguageModel({
-    model: google("gemini-2.5-flash"),
-    middleware: devToolsMiddleware(),
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const userId = session.user.id;
+
+  const parsed = chatRequestSchema.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+  const { conversationId, model, messages: uiMessages } = parsed.data;
+  if (!isAllowedModel(model)) {
+    return c.json({ error: `Unknown model: ${model}` }, 400);
+  }
+
+  const [conversation] = await db
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.userId, userId)
+      )
+    );
+  if (!conversation) {
+    return c.json({ error: "Conversation not found" }, 404);
+  }
+
+  const userText = latestUserText(uiMessages);
+  if (!userText) {
+    return c.json({ error: "No user message" }, 400);
+  }
+
+  await db
+    .insert(messages)
+    .values({ conversationId, role: "user", content: userText });
+  await db
+    .update(conversations)
+    .set({
+      updatedAt: new Date(),
+      // Derive the thread title from its first message.
+      ...(conversation.title === "New conversation"
+        ? { title: userText.slice(0, 80) }
+        : {}),
+    })
+    .where(eq(conversations.id, conversationId));
+
+  const recent = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(desc(messages.createdAt))
+    .limit(CONTEXT_MESSAGES);
+  const modelMessages = buildModelMessages(recent.reverse());
+
+  // Reserve the assistant message and event ids up front so the inference log can reference the
+  // message before the stream completes.
+  const assistantId = randomUUID();
+  const eventId = randomUUID();
+  const logger = streamLogger({
+    conversationId,
+    messageId: assistantId,
+    eventId,
+    model,
+    input: userText,
+    system: "openrouter",
+    stream: true,
   });
+
+  async function persistAssistant(content: string): Promise<void> {
+    try {
+      await db.insert(messages).values({
+        id: assistantId,
+        conversationId,
+        role: "assistant",
+        content,
+        inferenceEventId: eventId,
+      });
+      await db
+        .update(conversations)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversations.id, conversationId));
+    } catch (error) {
+      console.error("[ollive] failed to persist assistant message", error);
+    }
+  }
+
   const result = streamText({
-    model: ai.wrap(model),
-    messages: await convertToModelMessages(uiMessages),
-    experimental_telemetry: {
-      isEnabled: true,
-      integrations: [createEvlogIntegration(ai)],
+    model: openrouter(model),
+    messages: modelMessages,
+    abortSignal: c.req.raw.signal,
+    onChunk: logger.onChunk,
+    onError: logger.onError,
+    onAbort: async (event) => {
+      logger.onAbort(event);
+      await persistAssistant(logger.partialText());
+    },
+    onFinish: async (event) => {
+      logger.onFinish(event);
+      await persistAssistant(event.text);
     },
   });
 

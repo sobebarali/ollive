@@ -47,20 +47,32 @@ The wrapper:
 
 ### 3. For streaming responses
 
-Pass the stream through the wrapper so it can measure *time to first token* and accumulate usage:
+Streaming needs hooks into the stream lifecycle rather than a single return value, so use
+`streamLogger`. It returns the `onChunk` / `onFinish` / `onAbort` / `onError` callbacks you wire into
+the Vercel AI SDK `streamText` call; it captures *time to first token* on the first text delta, total
+latency and usage on completion, and emits exactly one event:
 
 ```ts
-const stream = await logged(
-  { conversationId, messageId, model, stream: true },
-  (client) => client.chatStream({ messages }),
-);
+import { streamLogger } from "@ollive/sdk";
 
-for await (const chunk of stream) {
-  // forward chunk to the client over SSE
-}
+const logger = streamLogger({ conversationId, messageId, model, stream: true });
+
+const result = streamText({
+  model: openrouter(model),
+  messages,
+  abortSignal,
+  onChunk: logger.onChunk,
+  onError: logger.onError,
+  onAbort: logger.onAbort,
+  onFinish: logger.onFinish,
+});
+
+return result.toUIMessageStreamResponse();
 ```
 
-The event is emitted when the stream closes (or errors).
+The event is emitted when the stream finishes, is aborted (`status: cancelled`), or errors. A
+cancelled stream still produces an event — `onFinish` does not fire on abort, so persist any partial
+output from `onAbort` if you need it.
 
 ## Verify it worked
 
