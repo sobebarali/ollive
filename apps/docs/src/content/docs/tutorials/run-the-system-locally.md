@@ -8,11 +8,6 @@ message to the chatbot, and you will have watched that call appear as an inferen
 dashboard. This is a learning-oriented walkthrough — for the *why* behind each piece, follow the
 links into the [Explanation](/explanation/architecture-overview/) section.
 
-:::note
-This documents the target local-dev workflow. Some commands assume the build steps described in
-the docs are in place.
-:::
-
 ## Prerequisites
 
 - [Bun](https://bun.sh) installed
@@ -45,7 +40,17 @@ docker compose up
 This brings up PostgreSQL, ClickHouse, and Valkey. ClickHouse runs the init SQL on first boot, so
 the `inference_logs` table is ready. Wait until the health checks pass.
 
-## 4. Start the apps and the ingestion worker
+## 4. Apply the database schema
+
+```bash
+bun run db:push
+```
+
+This creates the auth, `conversations`, and `messages` tables in PostgreSQL. Run it once after the
+first `docker compose up`; you only need to re-run it after a schema change. (ClickHouse's
+`inference_logs` table is created automatically by the init SQL in the previous step.)
+
+## 5. Start the apps and the ingestion worker
 
 ```bash
 bun run dev   # web app (:5173) + API (:3000) + ingestion worker
@@ -57,20 +62,25 @@ worker on its own, use `bun run dev:worker`.
 The worker is a separate process so the chat path never depends on ClickHouse being available. It
 prints the stream and consumer group it is draining when it starts.
 
-## 5. Open the chatbot and send a message
+## 6. Open the chatbot and send a message
 
 Open [http://localhost:5173](http://localhost:5173), start a new conversation, pick a model, and
 send a message. You should see the response stream in token by token.
 
 Send a couple more messages so the model has multi-turn context to work with.
 
-## 6. Watch your call become an inference log
+## 7. Watch your call become an inference log
 
-Open the dashboard route in the web app. Within about a second of your message, you should see:
+Open the **Dashboard** link in the header (the `/dashboard` route). Metrics are scoped to your own
+conversations and read from ClickHouse, so they appear within about a second of your message — once
+the ingestion worker has processed it. Use the time-range selector (15m / 1h / 24h / 7d) to change
+the window. You should see:
 
-- the **throughput** panel tick up by one call,
-- the **latency** panel show your call's duration,
-- the **errors** panel stay flat (assuming success).
+- the **throughput** panel tick up by one call (total plus a bar chart over time),
+- the **latency** panel show avg / p50 / p95 for your successful calls,
+- the **errors** panel (by status and by error type) stay flat (assuming success).
+
+If you have not sent any messages yet, the dashboard shows an empty state instead of panels.
 
 To see the raw event, query ClickHouse directly:
 
@@ -84,7 +94,7 @@ You just observed the full path: **chat → SDK wrapper → Valkey stream → in
 ClickHouse → dashboard.** That is the
 [logging and ingestion flow](/explanation/logging-and-ingestion-flow/) end to end.
 
-## 7. Try the conversation controls
+## 8. Try the conversation controls
 
 Back in the UI:
 

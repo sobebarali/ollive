@@ -1,104 +1,203 @@
-# ollive
+# Ollive
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Hono, ORPC, and more.
+Ollive is a multi-turn LLM chatbot with a **near-real-time inference logging and ingestion
+pipeline**. Every model call is wrapped by a lightweight SDK that captures rich metadata — model,
+provider, latency, token usage, status, conversation IDs, and redacted input/output previews — and
+emits it as a structured event. A separate worker validates, enriches, and stores those events for
+analytics, so the chat path never waits on (or breaks because of) the logging path.
 
-## Features
+The deeper "why" lives in [`apps/docs`](apps/docs) (an Astro Starlight site). This README is the
+fast path from clone to a working local system.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Hono** - Lightweight, performant server framework
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Node.js** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
-- **Starlight** - Documentation site with Astro
+## Architecture
 
-## Getting Started
+```text
+┌─────────────┐   chat (SSE stream)       ┌──────────────────────────┐
+│   Web app   │ ─────────────────────────▶│  Chat API (Hono + oRPC)  │
+│ (TanStack)  │ ◀──── tokens stream ──────│  wraps the LLM via SDK   │
+└─────────────┘                           └────────────┬─────────────┘
+      ▲                                                 │ emit inference event
+      │ dashboards / history                            ▼
+      │                                   ┌──────────────────────────┐
+      │                                   │  Valkey Stream (buffer)  │
+      │                                   └────────────┬─────────────┘
+      │                                                │ consume in batches
+      │                                   ┌──────────────────────────┐
+      │                                   │  Ingestion worker        │
+      │                                   │  validate → redact → map │
+      │                                   └──────┬──────────┬────────┘
+      │                  ┌───────────────────────▼──┐   ┌───▼─────────────────────┐
+      └──────────────────│ PostgreSQL               │   │ ClickHouse              │
+                         │ conversations, messages  │   │ inference_logs (OLAP)   │
+                         └──────────────────────────┘   └─────────────────────────┘
+```
 
-First, install the dependencies:
+The data path is: **chat → SDK wrapper → Valkey stream → ingestion worker → ClickHouse → dashboard.**
+
+Two databases, on purpose:
+
+- **PostgreSQL** stores conversations and messages. This OLTP data has clear relational boundaries
+  (`users → conversations → messages`) and benefits from constraints, indexes, and joins.
+- **ClickHouse** stores inference logs. The dashboards are time-bucketed aggregations
+  (`count()`, `avg`/`p50`/`p95` latency, errors by type) over a high-volume, append-only table —
+  exactly what a columnar OLAP engine is built for.
+
+A Valkey stream sits between the chat path and storage so the chat request only does one cheap thing
+(append to the buffer) and returns immediately. The worker drains the buffer at its own pace,
+retries on failure, and scales independently. See
+[Architecture overview](apps/docs/src/content/docs/explanation/architecture-overview.md).
+
+## Prerequisites
+
+- [Bun](https://bun.sh)
+- [Docker](https://www.docker.com) running (for PostgreSQL, ClickHouse, and Valkey)
+- An [OpenRouter](https://openrouter.ai) API key
+
+## Setup
+
+Local development is **two commands**: `docker compose up` for the backing services and
+`bun run dev` for the apps. Full steps:
 
 ```bash
+# 1. Install dependencies
 bun install
-```
 
-## Database Setup
+# 2. Configure environment
+cp apps/server/.env.example apps/server/.env
+# then set OPENROUTER_API_KEY in apps/server/.env
+# (the Postgres, ClickHouse, and Valkey URLs already point at the Docker services)
 
-This project uses PostgreSQL with Drizzle ORM.
+# 3. Start the backing services
+#    Postgres :5432, ClickHouse :8123/:9000, Valkey :6379.
+#    ClickHouse auto-runs infra/clickhouse/001_inference_logs.sql on first boot.
+docker compose up
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
+# 4. Apply the database schema (creates auth + conversations/messages tables)
+#    Required on first run; re-run only after a schema change.
 bun run db:push
-```
 
-Then, run the development server:
-
-```bash
+# 5. Start the web app, API, and ingestion worker together
 bun run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Then open <http://localhost:5173>, sign up, and start chatting. The API runs at
+<http://localhost:3000> (OpenAPI reference at <http://localhost:3000/api-reference>).
 
-## UI Customization
+For a guided walkthrough that traces a single message all the way to the dashboard, see
+[Run the system locally](apps/docs/src/content/docs/tutorials/run-the-system-locally.md).
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+## Using it
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+- **Chat** — multi-turn conversations with streaming responses. A sidebar lists your conversations
+  (newest first); pick a model, start a new chat, resume an older one, or cancel an in-flight
+  response (cancellation is logged with `status = cancelled`).
+- **Dashboard** — visit `/dashboard` for throughput, latency (avg / p50 / p95), and error panels
+  over your inference logs, with `15m` / `1h` / `24h` / `7d` time ranges. Numbers appear within
+  about a second of a chat message, once the worker ingests the event.
 
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
+To see a raw event in ClickHouse:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+docker compose exec clickhouse clickhouse-client --query \
+  "SELECT gen_ai_request_model, status, latency_ms, input_tokens, output_tokens \
+   FROM inference_logs ORDER BY start_time DESC LIMIT 1"
 ```
 
-Import shared components like this:
+## Schema design & tradeoffs
 
-```tsx
-import { Button } from "@ollive/ui/components/button";
-```
+The system has two data shapes with opposite access patterns, so it uses two stores:
 
-### Add app-specific blocks
+| | Conversational data | Inference logs |
+|---|---|---|
+| Write pattern | low volume, updated in place | high volume, append-only |
+| Read pattern | fetch a thread by id | aggregate over time ranges |
+| Best fit | PostgreSQL (OLTP) | ClickHouse (columnar OLAP) |
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+The inference event mirrors the **OpenTelemetry GenAI semantic conventions**
+(`gen_ai.request.model`, `gen_ai.usage.input_tokens`, …) at the event boundary, then maps to
+ClickHouse column names in the worker — interoperable and self-documenting. We store truncated,
+**PII-redacted previews** plus token counts rather than full prompt/response bodies, to bound
+storage growth and shrink the PII surface.
 
-## Project Structure
+Accepted tradeoffs: two engines to operate (mitigated by Docker Compose bundling both), and eventual
+consistency between the two stores — a message in PostgreSQL and its log in ClickHouse are written at
+slightly different times, linked by message id once the log lands. Full detail in
+[Schema design & tradeoffs](apps/docs/src/content/docs/explanation/schema-design-and-tradeoffs.md).
 
-```
+## Failure handling
+
+Every failure decision follows one rule: **a failure in logging or storage must never degrade the
+user's chat.**
+
+- **Emit to buffer fails** (Valkey unreachable): the SDK swallows the error — logging is
+  best-effort — so the chat still returns.
+- **Worker crashes mid-batch**: the `ingestion` consumer group only `XACK`s a batch after its rows
+  are stored, so unacked events stay in the pending list and are redelivered on restart.
+- **Malformed event**: routed to a validation dead-letter stream (`inference:events:dead`) rather
+  than dropped.
+- **ClickHouse write fails**: the worker retries with exponential backoff and does not ack until the
+  insert succeeds; batches that exhaust retries are parked in a separate write-failure stream
+  (`inference:events:dead:write`) so a stuck write never blocks the rest.
+- **Cancellation**: produces an explicit `status = cancelled` event rather than looking like
+  success.
+
+See [Scaling & failure handling](apps/docs/src/content/docs/explanation/scaling-and-failure-handling.md).
+
+## What we'd improve with more time
+
+- Fully idempotent inserts (dedupe on `event_id`) so even a deliberate full stream replay cannot
+  create duplicate rows — today's re-run safety comes from the consumer-group cursor.
+- TTL-based retention and a materialized view for the hottest dashboard rollups.
+- Autoscaling the worker on stream lag; broader multi-provider coverage and richer dashboards.
+- Kubernetes deployment (the deferred bonus in `IMPLEMENTATION.md` Step 11).
+
+## Repo structure
+
+```text
 ollive/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   ├── docs/        # Documentation site (Astro Starlight)
-│   └── server/      # Backend API (Hono, ORPC)
+│   ├── web/         # React + TanStack Router chat UI and dashboard
+│   ├── server/      # Hono API (oRPC, auth, streaming chat) + ingestion worker
+│   └── docs/        # Astro Starlight documentation site
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── api/         # oRPC routers (conversation, model, metrics) + ClickHouse client
+│   ├── sdk/         # inference logging SDK: event schema, redaction, emit, logged()/streamLogger
+│   ├── auth/        # Better Auth configuration and Drizzle adapter
+│   ├── db/          # Drizzle + PostgreSQL schema (conversations, messages, auth)
+│   ├── env/         # @t3-oss/env-core + Zod environment validation
+│   ├── ui/          # shared shadcn/ui primitives
+│   └── config/      # shared TypeScript config
+└── infra/
+    └── clickhouse/  # inference_logs table init SQL (mounted into the ClickHouse container)
 ```
 
-## Available Scripts
+## Scripts
 
-- `bun run dev`: Start all applications (web, server, ingestion worker) in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run dev:worker`: Start only the ingestion worker
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `cd apps/docs && bun run dev`: Start documentation site
-- `cd apps/docs && bun run build`: Build documentation site
+Run from the repo root.
+
+| Script | What it does |
+|---|---|
+| `bun run dev` | Start web (:5173), API (:3000), and the ingestion worker together |
+| `bun run dev:web` / `dev:server` / `dev:worker` | Start a single app |
+| `bun run db:push` | Apply the Drizzle schema to PostgreSQL (run once after first `docker compose up`) |
+| `bun run db:studio` | Open Drizzle Studio |
+| `bun run build` | Build all apps and packages |
+| `bun run check-types` | Type-check across the monorepo |
+| `bun run check` / `bun run fix` | Lint/format with Ultracite |
+| `bun run test` | Run unit tests |
+| `cd apps/docs && bun run dev` | Run the documentation site |
+
+## Documentation
+
+The [`apps/docs`](apps/docs) site is the architecture and contract reference:
+
+- [Run the system locally](apps/docs/src/content/docs/tutorials/run-the-system-locally.md)
+- [Instrument an LLM call](apps/docs/src/content/docs/guides/instrument-an-llm-call.md)
+- [Configuration (env vars & ports)](apps/docs/src/content/docs/reference/configuration.md)
+- [Inference log schema](apps/docs/src/content/docs/reference/inference-log-schema.md)
+- Explanation: [architecture](apps/docs/src/content/docs/explanation/architecture-overview.md) ·
+  [logging & ingestion flow](apps/docs/src/content/docs/explanation/logging-and-ingestion-flow.md) ·
+  [schema design & tradeoffs](apps/docs/src/content/docs/explanation/schema-design-and-tradeoffs.md) ·
+  [scaling & failure handling](apps/docs/src/content/docs/explanation/scaling-and-failure-handling.md)
+</content>
+</invoke>
