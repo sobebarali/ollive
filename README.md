@@ -77,8 +77,9 @@ bun install
 
 # 2. Configure environment
 cp apps/server/.env.example apps/server/.env
-# then set OPENROUTER_API_KEY in apps/server/.env
+# then set OPENROUTER_API_KEY and BYOK_ENCRYPTION_KEY (any 32+ char secret) in apps/server/.env
 # (the Postgres, ClickHouse, and Valkey URLs already point at the Docker services)
+# New users chat on the shared key up to SHARED_KEY_LIMIT_USD ($1), then add their own key in Settings.
 
 # 3. Start the backing services
 #    Postgres :5432, ClickHouse :8123/:9000, Valkey :6379.
@@ -162,7 +163,7 @@ See [Scaling & failure handling](apps/docs/src/content/docs/explanation/scaling-
   create duplicate rows — today's re-run safety comes from the consumer-group cursor.
 - TTL-based retention and a materialized view for the hottest dashboard rollups.
 - Autoscaling the worker on stream lag; broader multi-provider coverage and richer dashboards.
-- Kubernetes deployment (the deferred bonus in `IMPLEMENTATION.md` Step 11).
+- Kubernetes deployment.
 
 ## Continuous integration
 
@@ -188,7 +189,9 @@ real values):
 | `DATABASE_URL` | PostgreSQL — add a Railway Postgres service and reference its URL |
 | `CLICKHOUSE_URL` | ClickHouse HTTP endpoint for inference analytics |
 | `REDIS_URL` | Valkey/Redis stream buffer (`redis://` or `rediss://`) |
-| `OPENROUTER_API_KEY` | OpenRouter API key for model calls |
+| `OPENROUTER_API_KEY` | Shared OpenRouter key for the free tier's model calls |
+| `BYOK_ENCRYPTION_KEY` | Encrypts users' own OpenRouter keys at rest, at least 32 characters |
+| `SHARED_KEY_LIMIT_USD` | Optional; per-user lifetime cap on the shared key (default `1`) |
 | `BETTER_AUTH_SECRET` | Auth signing secret, at least 32 characters |
 | `BETTER_AUTH_URL` | Public URL of the deployed server |
 | `CORS_ORIGIN` | Public URL of the web app |

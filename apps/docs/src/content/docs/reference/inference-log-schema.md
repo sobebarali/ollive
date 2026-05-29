@@ -24,6 +24,7 @@ where one exists. For the reasoning behind this shape, see
 | `latency_ms` | uint32 | SDK | Total wall-clock duration of the call. |
 | `time_to_first_token_ms` | uint32 | SDK | Streaming only; null otherwise. |
 | `stream` | bool | SDK | Whether the response was streamed. |
+| `byok` | bool | SDK | Whether the call used the user's own API key. Consumed by the worker for free-tier accounting; **not stored in ClickHouse**. |
 | `status` | enum | SDK | `success` \| `error` \| `cancelled`. |
 | `error.type` | string | SDK | Error class name when `status = error` (e.g. `AI_APICallError`, `RangeError`). |
 | `error.message` | string | SDK | Provider error body/message when `status = error`. Truncated, **PII-redacted**. |
@@ -40,6 +41,13 @@ sent by the SDK. The worker prices each call from OpenRouter's per-token model p
 the SDK's raw `error.type` / `error.status_code` / `error.message` to a stable class (HTTP status
 wins: 429 → `rate_limit`, 401/403 → `auth`, …), so prices and error taxonomies can change without
 shipping a new SDK. The redacted `error.message` is stored verbatim for drill-down.
+:::
+
+:::note
+`byok` rides on the event but is **not** a ClickHouse column. The worker uses it together with the
+derived `cost_usd` to accrue each shared-key user's spend against the free-tier cap in PostgreSQL
+(`user_keys.shared_spent_micro_usd`) — calls made with a user's own key are self-billed and skipped.
+See [Bring your own key](/guides/add-an-llm-provider/).
 :::
 
 ## ClickHouse table

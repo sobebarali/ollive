@@ -28,8 +28,9 @@ Copy the example env and fill in your key:
 cp apps/server/.env.example apps/server/.env
 ```
 
-Set at least `OPENROUTER_API_KEY`. The database, ClickHouse, and Valkey URLs already point at the
-Docker services. See [Configuration](/reference/configuration/) for the full list.
+Set at least `OPENROUTER_API_KEY` and `BYOK_ENCRYPTION_KEY` (any 32+ char secret). The database,
+ClickHouse, and Valkey URLs already point at the Docker services. See
+[Configuration](/reference/configuration/) for the full list.
 
 ## 3. Start the backing services
 
@@ -68,6 +69,11 @@ Open [http://localhost:5173](http://localhost:5173), start a new conversation, p
 send a message. You should see the response stream in token by token.
 
 Send a couple more messages so the model has multi-turn context to work with.
+
+New accounts chat on the shared `OPENROUTER_API_KEY` up to a `$1` lifetime cap
+(`SHARED_KEY_LIMIT_USD`). To chat without limits, open **Settings** and paste your own OpenRouter
+key — those calls then bill to your account. See
+[Bring your own key](/guides/add-an-llm-provider/).
 
 ## 7. Watch your call become an inference log
 

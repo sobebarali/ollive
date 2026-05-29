@@ -69,6 +69,44 @@ export const messages = pgTable(
 );
 ```
 
+## `user_keys` table
+
+One row per user, holding their optional bring-your-own OpenRouter key and their shared-key spend.
+See [Bring your own key](/guides/add-an-llm-provider/) for the cap behaviour.
+
+| Field | Type | Notes |
+|---|---|---|
+| `userId` | text | Primary key; foreign key to Better Auth `user.id`. |
+| `encryptedKey` | text | The user's OpenRouter key, AES-256-GCM encrypted. `null` = on the shared key. |
+| `keyLast4` | text | Last 4 plaintext chars for masked display. Not a secret. |
+| `sharedSpentMicroUsd` | bigint | Cumulative shared-key spend in micro-USD (`cost_usd × 1e6`), accrued by the worker. |
+| `createdAt` | timestamp | |
+| `updatedAt` | timestamp | |
+
+```ts
+import { user } from "./auth";
+
+export const userKeys = pgTable("user_keys", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  encryptedKey: text("encrypted_key"),
+  keyLast4: text("key_last4"),
+  sharedSpentMicroUsd: bigint("shared_spent_micro_usd", { mode: "number" })
+    .notNull()
+    .default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+```
+
+The chat path reads `sharedSpentMicroUsd` synchronously from PostgreSQL before each call so the
+free-tier cap never depends on ClickHouse availability; the ingestion worker writes it after pricing
+each call. Spend is stored as integer micro-USD so summing many sub-cent costs cannot drift.
+
 ## Relationships
 
 ```text

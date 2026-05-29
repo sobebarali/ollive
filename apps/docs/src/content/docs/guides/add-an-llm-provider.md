@@ -32,6 +32,27 @@ Cost is derived in the worker, not the SDK — see the
 That's it. The model appears in the picker, calls route through the existing wrapper, and events
 carry `gen_ai.system = "openrouter"` with the selected `gen_ai.request.model`.
 
+## Bring your own key (BYOK)
+
+By default every chat call uses the shared `OPENROUTER_API_KEY` (the deployment owner's key). To
+keep that from being an open tab, each user is capped at a **lifetime `SHARED_KEY_LIMIT_USD`** (default
+`$1`) of spend on the shared key. Once they cross it, `/ai` returns `402` and the chat UI prompts them
+to add their own key in **Settings**.
+
+How it works:
+
+- **Storage** — a user's own OpenRouter key is encrypted (AES-256-GCM, keyed by `BYOK_ENCRYPTION_KEY`)
+  and stored in `user_keys.encrypted_key`; only the last 4 chars are ever shown back. See
+  [Data models](/reference/data-models/).
+- **Validation** — saving a key checks it starts with `sk-or-` and live-verifies it against
+  OpenRouter's `/api/v1/key` endpoint, so a bad key fails at save time, not mid-chat.
+- **Accounting** — the chat handler reads `user_keys.shared_spent_micro_usd` from PostgreSQL before
+  each call (never ClickHouse, so the cap survives an analytics outage). Each event carries a `byok`
+  flag; the worker accrues `cost_usd` into that counter **only for shared-key calls**. Calls made with
+  a user's own key are self-billed and unmetered.
+- **Soft cap** — the check is before-the-call and the debit is after, so a user right at the limit can
+  overshoot slightly on their final call(s). Lower `SHARED_KEY_LIMIT_USD` to test the block quickly.
+
 ## The rarer case: a provider not behind OpenRouter
 
 If you need to call a provider directly (e.g. a self-hosted model), add it as a Vercel AI SDK

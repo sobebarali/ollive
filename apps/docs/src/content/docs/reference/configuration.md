@@ -14,7 +14,9 @@ rather than at first use.
 | `DATABASE_URL` | yes | `postgresql://postgres:postgres@localhost:5432/ollive` | PostgreSQL (conversations, messages, auth). |
 | `CLICKHOUSE_URL` | yes | `http://localhost:8123` | Inference log storage + dashboards. |
 | `REDIS_URL` | yes | `redis://localhost:6379` | Valkey event stream (buffer). |
-| `OPENROUTER_API_KEY` | yes | `sk-or-…` | Multi-provider LLM access via OpenRouter. |
+| `OPENROUTER_API_KEY` | yes | `sk-or-…` | Shared free-tier key for multi-provider LLM access via OpenRouter. |
+| `BYOK_ENCRYPTION_KEY` | yes | 32+ char secret | Encrypts users' own OpenRouter keys at rest (AES-256-GCM). See [Bring your own key](/guides/add-an-llm-provider/). |
+| `SHARED_KEY_LIMIT_USD` | no | `1` (default) | Lifetime spend cap per user on the shared key before they must add their own. |
 | `BETTER_AUTH_SECRET` | yes | 32+ char secret | Session signing. |
 | `BETTER_AUTH_URL` | yes | `http://localhost:3000` | Auth base URL. |
 | `CORS_ORIGIN` | yes | `http://localhost:5173` | Allowed web origin. |
