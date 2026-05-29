@@ -1,6 +1,6 @@
 import { protectedProcedure } from "../index";
-import { MODELS } from "../models";
+import { listModels } from "../models";
 
 export const modelRouter = {
-  list: protectedProcedure.handler(() => MODELS),
+  list: protectedProcedure.handler(() => listModels()),
 };

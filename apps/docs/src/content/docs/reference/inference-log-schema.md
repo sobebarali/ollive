@@ -34,8 +34,8 @@ where one exists. For the reasoning behind this shape, see
 
 :::note
 `cost_usd` and `error` classification are *derived* by the ingestion worker, not sent by the
-SDK. Keeping derivation server-side means pricing tables and error taxonomies can change without
-shipping a new SDK.
+SDK. The worker prices each call from OpenRouter's per-token model pricing, so prices and error
+taxonomies can change without shipping a new SDK.
 :::
 
 ## ClickHouse table

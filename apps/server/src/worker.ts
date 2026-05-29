@@ -1,4 +1,5 @@
 import { createClient } from "@clickhouse/client";
+import { getModelPrice } from "@ollive/api/models";
 import { db } from "@ollive/db";
 import { messages } from "@ollive/db/schema/conversation";
 import { env } from "@ollive/env/server";
@@ -32,9 +33,10 @@ function toClickHouseTime(iso: string): string {
   return new Date(iso).toISOString().replace("T", " ").replace("Z", "");
 }
 
-function toRow(event: InferenceEvent) {
+async function toRow(event: InferenceEvent) {
   const requestModel = event["gen_ai.request.model"];
   const responseModel = event["gen_ai.response.model"] ?? "";
+  const price = await getModelPrice(requestModel);
   return {
     event_id: event.event_id,
     conversation_id: event.conversation_id,
@@ -53,10 +55,10 @@ function toRow(event: InferenceEvent) {
       event.status === "error" ? classifyError(event["error.type"]) : "",
     input_preview: event.input_preview,
     output_preview: event.output_preview,
-    // Price by the requested model (the allow-list id the pricing table is keyed on); the
+    // Price by the requested model id; OpenRouter keys its pricing on that id, while the
     // provider-resolved response model carries version suffixes that rarely match.
     cost_usd: deriveCost(
-      requestModel,
+      price,
       event["gen_ai.usage.input_tokens"],
       event["gen_ai.usage.output_tokens"]
     ),
@@ -79,7 +81,7 @@ const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function insertWithRetry(
-  rows: ReturnType<typeof toRow>[]
+  rows: Awaited<ReturnType<typeof toRow>>[]
 ): Promise<boolean> {
   for (let attempt = 1; attempt <= INSERT_MAX_ATTEMPTS; attempt++) {
     try {
@@ -145,7 +147,7 @@ async function processBatch(entries: StreamEntry[]): Promise<void> {
   }
 
   if (valid.length > 0) {
-    const rows = valid.map(({ event }) => toRow(event));
+    const rows = await Promise.all(valid.map(({ event }) => toRow(event)));
     const inserted = await insertWithRetry(rows);
     if (inserted) {
       await linkMessages(valid.map(({ event }) => event));

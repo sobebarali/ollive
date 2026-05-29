@@ -1,30 +1,47 @@
-import { describe, expect, it } from "bun:test";
-import { isAllowedModel, MODELS } from "./models";
+import { afterEach, describe, expect, it, mock } from "bun:test";
+import { isAllowedModel, listModels } from "./models";
 
-// Mirror of the worker pricing table keys (apps/server/src/worker/pricing.ts). If MODELS drifts from
-// these, cost_usd silently derives to 0, so this guard fails loudly instead.
-const PRICED_MODELS = [
-  "anthropic/claude-sonnet",
-  "openai/gpt-4.1",
-  "google/gemini-2.5-pro",
-  "deepseek/deepseek-chat",
-];
+const OPENROUTER_RESPONSE = {
+  data: [
+    { id: "openai/gpt-4o", name: "OpenAI: GPT-4o" },
+    { id: "anthropic/claude-sonnet-4.5", name: "Anthropic: Claude Sonnet 4.5" },
+  ],
+};
 
-describe("MODELS allow-list", () => {
-  it("contains only models that have server-side pricing", () => {
-    expect([...MODELS].sort()).toEqual([...PRICED_MODELS].sort());
+function mockFetchOnce(response: unknown, ok = true) {
+  globalThis.fetch = mock(() =>
+    Promise.resolve({
+      ok,
+      status: ok ? 200 : 502,
+      json: () => Promise.resolve(response),
+    } as Response)
+  );
+}
+
+afterEach(() => {
+  mock.restore();
+});
+
+describe("listModels", () => {
+  it("maps and sorts the OpenRouter model list by name", async () => {
+    mockFetchOnce(OPENROUTER_RESPONSE);
+    const models = await listModels();
+    expect(models.map((m) => m.id)).toEqual([
+      "anthropic/claude-sonnet-4.5",
+      "openai/gpt-4o",
+    ]);
   });
 });
 
 describe("isAllowedModel", () => {
-  it("accepts every allow-listed model", () => {
-    for (const model of MODELS) {
-      expect(isAllowedModel(model)).toBe(true);
-    }
+  it("accepts an id returned by OpenRouter", async () => {
+    mockFetchOnce(OPENROUTER_RESPONSE);
+    expect(await isAllowedModel("openai/gpt-4o")).toBe(true);
   });
 
-  it("rejects an unknown model", () => {
-    expect(isAllowedModel("anthropic/claude-opus-4")).toBe(false);
-    expect(isAllowedModel("")).toBe(false);
+  it("rejects an unknown or empty model", async () => {
+    mockFetchOnce(OPENROUTER_RESPONSE);
+    expect(await isAllowedModel("does/not-exist")).toBe(false);
+    expect(await isAllowedModel("")).toBe(false);
   });
 });

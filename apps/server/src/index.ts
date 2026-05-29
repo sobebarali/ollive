@@ -141,7 +141,7 @@ app.post("/ai", async (c) => {
     return c.json({ error: "Invalid request" }, 400);
   }
   const { conversationId, model, messages: uiMessages } = parsed.data;
-  if (!isAllowedModel(model)) {
+  if (!(await isAllowedModel(model))) {
     return c.json({ error: `Unknown model: ${model}` }, 400);
   }
 

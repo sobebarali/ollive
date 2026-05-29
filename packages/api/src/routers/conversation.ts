@@ -23,7 +23,7 @@ export const conversationRouter = {
       })
     )
     .handler(async ({ context, input }) => {
-      if (!isAllowedModel(input.model)) {
+      if (!(await isAllowedModel(input.model))) {
         throw new ORPCError("BAD_REQUEST", {
           message: `Unknown model: ${input.model}`,
         });

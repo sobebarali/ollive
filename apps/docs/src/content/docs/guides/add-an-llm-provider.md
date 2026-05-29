@@ -13,36 +13,24 @@ Let users pick a new model in the chat UI and have its calls logged like any oth
 
 ## The common case: a new model via OpenRouter
 
-### 1. Add the model id to the allow-list
+**There is nothing to do.** The model picker is populated live from OpenRouter's public
+[`/api/v1/models`](https://openrouter.ai/docs/api-reference/list-available-models) endpoint
+(`packages/api/src/models.ts`, fetched and cached in-process), so any model OpenRouter offers is
+already selectable by its `provider/model` id.
 
-Models are referenced by their OpenRouter id (`provider/model`). Add it to the list the API
-exposes to the UI:
+Validation is dynamic too: `isAllowedModel` checks the requested id against the live list, so the
+chat API and `conversation.create` accept exactly the models OpenRouter currently serves.
 
-```ts
-export const MODELS = [
-  "anthropic/claude-sonnet",
-  "openai/gpt-4.1",
-  "google/gemini-2.5-pro",
-  "deepseek/deepseek-chat", // ← new
-] as const;
-```
+### Pricing is automatic
 
-### 2. (Optional) add pricing for cost derivation
-
-If you want `cost_usd` populated for the new model, add its token prices to the worker's pricing
-table:
-
-```ts
-const PRICING = {
-  "deepseek/deepseek-chat": { input: 0.27, output: 1.1 }, // USD per 1M tokens
-};
-```
-
+`cost_usd` is derived in the worker from the per-token `pricing` (`prompt`/`completion`) that
+OpenRouter reports for each model — there is no hand-maintained pricing table. A model OpenRouter
+prices at `0` (or one it stops listing) derives to `cost_usd = 0` rather than failing ingestion.
 Cost is derived in the worker, not the SDK — see the
 [schema reference](/reference/inference-log-schema/).
 
 That's it. The model appears in the picker, calls route through the existing wrapper, and events
-carry `gen_ai.system = "openrouter"` with the new `gen_ai.request.model`.
+carry `gen_ai.system = "openrouter"` with the selected `gen_ai.request.model`.
 
 ## The rarer case: a provider not behind OpenRouter
 
