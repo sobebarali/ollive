@@ -52,7 +52,17 @@ async function toRow(event: InferenceEvent) {
     stream: event.stream,
     status: event.status,
     error_type:
-      event.status === "error" ? classifyError(event["error.type"]) : "",
+      event.status === "error"
+        ? classifyError(
+            event["error.type"],
+            event["error.status_code"],
+            event["error.message"]
+          )
+        : "",
+    error_message:
+      event.status === "error" ? (event["error.message"] ?? "") : "",
+    error_status:
+      event.status === "error" ? (event["error.status_code"] ?? 0) : 0,
     input_preview: event.input_preview,
     output_preview: event.output_preview,
     // Price by the requested model id; OpenRouter keys its pricing on that id, while the
@@ -83,6 +93,8 @@ const INFERENCE_LOGS_DDL = `CREATE TABLE IF NOT EXISTS inference_logs (
   stream                Bool,
   status                LowCardinality(String),
   error_type            String DEFAULT '',
+  error_message         String DEFAULT '',
+  error_status          UInt16 DEFAULT 0,
   input_preview         String,
   output_preview        String,
   cost_usd              Float64 DEFAULT 0,
@@ -93,8 +105,18 @@ ENGINE = MergeTree
 PARTITION BY toDate(start_time)
 ORDER BY (gen_ai_system, gen_ai_request_model, start_time)`;
 
+// Idempotent migrations for tables created before a column existed. CREATE TABLE IF NOT EXISTS does
+// not add columns to an existing table, so back-fill them here on boot.
+const INFERENCE_LOGS_MIGRATIONS = [
+  "ALTER TABLE inference_logs ADD COLUMN IF NOT EXISTS error_message String DEFAULT '' AFTER error_type",
+  "ALTER TABLE inference_logs ADD COLUMN IF NOT EXISTS error_status UInt16 DEFAULT 0 AFTER error_message",
+];
+
 async function ensureSchema(): Promise<void> {
   await clickhouse.command({ query: INFERENCE_LOGS_DDL });
+  for (const query of INFERENCE_LOGS_MIGRATIONS) {
+    await clickhouse.command({ query });
+  }
 }
 
 async function ensureGroup(): Promise<void> {

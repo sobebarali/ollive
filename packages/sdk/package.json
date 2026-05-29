@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@ollive/env": "workspace:*",
+    "ai": "catalog:",
     "ioredis": "catalog:",
     "zod": "catalog:"
   },

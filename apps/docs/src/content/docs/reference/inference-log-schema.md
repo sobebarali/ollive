@@ -25,7 +25,9 @@ where one exists. For the reasoning behind this shape, see
 | `time_to_first_token_ms` | uint32 | SDK | Streaming only; null otherwise. |
 | `stream` | bool | SDK | Whether the response was streamed. |
 | `status` | enum | SDK | `success` \| `error` \| `cancelled`. |
-| `error.type` | string | SDK | Error class when `status = error` (e.g. `timeout`, `rate_limit`). |
+| `error.type` | string | SDK | Error class name when `status = error` (e.g. `AI_APICallError`, `RangeError`). |
+| `error.message` | string | SDK | Provider error body/message when `status = error`. Truncated, **PII-redacted**. |
+| `error.status_code` | uint32 | SDK | HTTP status from an AI SDK `APICallError`; drives error classification. |
 | `input_preview` | string | SDK | Truncated, **PII-redacted** prompt preview. |
 | `output_preview` | string | SDK | Truncated, **PII-redacted** completion preview. |
 | `cost_usd` | float64 | worker | Derived from token counts × model price. |
@@ -33,9 +35,11 @@ where one exists. For the reasoning behind this shape, see
 | `created_at` | DateTime64 | worker | UTC ingestion timestamp. |
 
 :::note
-`cost_usd` and `error` classification are *derived* by the ingestion worker, not sent by the
-SDK. The worker prices each call from OpenRouter's per-token model pricing, so prices and error
-taxonomies can change without shipping a new SDK.
+`cost_usd` and the low-cardinality `error_type` class are *derived* by the ingestion worker, not
+sent by the SDK. The worker prices each call from OpenRouter's per-token model pricing, and maps
+the SDK's raw `error.type` / `error.status_code` / `error.message` to a stable class (HTTP status
+wins: 429 → `rate_limit`, 401/403 → `auth`, …), so prices and error taxonomies can change without
+shipping a new SDK. The redacted `error.message` is stored verbatim for drill-down.
 :::
 
 ## ClickHouse table
@@ -56,6 +60,8 @@ CREATE TABLE inference_logs (
   stream                Bool,
   status                LowCardinality(String),
   error_type            String DEFAULT '',
+  error_message         String DEFAULT '',
+  error_status          UInt16 DEFAULT 0,
   input_preview         String,
   output_preview        String,
   cost_usd              Float64 DEFAULT 0,
@@ -102,3 +108,26 @@ embedded DDL and this file in sync.
   "start_time": "2026-05-27T18:04:11.220Z"
 }
 ```
+
+A failed call carries the error fields instead of an output. The SDK reads these straight off the
+AI SDK's `APICallError`; the worker then classifies them into `error_type` (here `rate_limit`):
+
+```json
+{
+  "status": "error",
+  "error.type": "AI_APICallError",
+  "error.status_code": 429,
+  "error.message": "{\"error\":{\"message\":\"rate limit exceeded\"}}",
+  "input_preview": "Summarise the attached report…",
+  "output_preview": ""
+}
+```
+
+## Where these fields surface
+
+Every column above is exposed in the web app's **Logs** explorer (`/logs`), one row per call,
+newest-first, scoped to the signed-in user's conversations. It is served by the `logs.list` oRPC
+procedure, which reads `inference_logs` directly with a bounded `LIMIT`/`OFFSET` and the same
+`conversation_id IN (...)` ownership filter the metrics dashboard uses — raw rows are never pulled
+into JavaScript unfiltered. The aggregate [dashboard](/tutorials/run-the-system-locally/) consumes
+the same table via `metrics.overview`.

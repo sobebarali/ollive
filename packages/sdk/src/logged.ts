@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { env } from "@ollive/env/server";
+import { APICallError } from "ai";
 import { emitEvent } from "./emit";
 import type { InferenceEvent, InferenceStatus } from "./event";
 import { redactPreview } from "./redact";
@@ -77,6 +78,8 @@ export function isAbortError(error: unknown): boolean {
   );
 }
 
+/** OTel-style error.type: the error class name. AI SDK errors carry a stable name (e.g.
+ * "AI_APICallError"); fall back to a generic Error's message when it has no useful name. */
 export function errorType(error: unknown): string {
   if (error instanceof Error) {
     return error.name === "Error" ? error.message : error.name;
@@ -84,8 +87,28 @@ export function errorType(error: unknown): string {
   return "unknown";
 }
 
+/** Raw error text for the redacted error_message. For an AI SDK APICallError the provider's
+ * response body is the most informative; otherwise use the error message. Redacted by finalize. */
+export function errorMessage(error: unknown): string {
+  if (APICallError.isInstance(error)) {
+    return error.responseBody?.trim() || error.message;
+  }
+  if (error instanceof Error) {
+    return error.message || error.name;
+  }
+  return String(error);
+}
+
+/** HTTP status from an AI SDK APICallError, when present. Drives reliable error classification in
+ * the worker (429 -> rate_limit, 401/403 -> auth, ...). */
+export function errorStatus(error: unknown): number | undefined {
+  return APICallError.isInstance(error) ? error.statusCode : undefined;
+}
+
 export interface FinalizeArgs {
   context: LoggedContext;
+  errorMessage?: string;
+  errorStatus?: number;
   errorType?: string;
   eventId: string;
   meta?: CallMetadata;
@@ -113,6 +136,10 @@ export function finalize(args: FinalizeArgs): void {
     stream: args.context.stream ?? false,
     status: args.status,
     "error.type": args.errorType,
+    "error.message": args.errorMessage
+      ? redactPreview(args.errorMessage, { maxChars, enabled })
+      : undefined,
+    "error.status_code": args.errorStatus,
     input_preview: redactPreview(args.context.input ?? "", {
       maxChars,
       enabled,
@@ -155,13 +182,16 @@ export async function logged<T>(
     });
     return result;
   } catch (error) {
+    const aborted = isAbortError(error);
     finalize({
       context,
       eventId,
       startTime,
       startedAt,
-      status: isAbortError(error) ? "cancelled" : "error",
+      status: aborted ? "cancelled" : "error",
       errorType: errorType(error),
+      errorMessage: aborted ? undefined : errorMessage(error),
+      errorStatus: aborted ? undefined : errorStatus(error),
     });
     throw error;
   }

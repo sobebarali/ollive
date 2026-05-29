@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import path from "node:path";
+import { APICallError } from "ai";
 import { config } from "dotenv";
 import type { InferenceEvent } from "./event";
 
@@ -97,6 +98,38 @@ describe("streamLogger", () => {
 
     expect(emitted[0].status).toBe("error");
     expect(emitted[0]["error.type"]).toBe("RangeError");
+  });
+
+  it("captures the raw error message on error", () => {
+    const logger = streamLogger(baseContext);
+    logger.onError({ error: new RangeError("context length exceeded") });
+
+    expect(emitted[0].status).toBe("error");
+    expect(emitted[0]["error.message"]).toContain("context length exceeded");
+  });
+
+  it("omits the error message on success", () => {
+    const logger = streamLogger(baseContext);
+    logger.onFinish({ text: "done" });
+
+    expect(emitted[0]["error.message"]).toBeUndefined();
+  });
+
+  it("extracts status code and response body from an AI SDK APICallError", () => {
+    const logger = streamLogger(baseContext);
+    const error = new APICallError({
+      message: "Rate limited",
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      requestBodyValues: {},
+      statusCode: 429,
+      responseBody: '{"error":{"message":"rate limit exceeded"}}',
+    });
+    logger.onError({ error });
+
+    expect(emitted[0].status).toBe("error");
+    expect(emitted[0]["error.type"]).toBe("AI_APICallError");
+    expect(emitted[0]["error.status_code"]).toBe(429);
+    expect(emitted[0]["error.message"]).toContain("rate limit exceeded");
   });
 
   it("classifies an abort error as cancelled", () => {

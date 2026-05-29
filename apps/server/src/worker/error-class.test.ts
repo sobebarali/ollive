@@ -37,4 +37,25 @@ describe("classifyError", () => {
     expect(classifyError(undefined)).toBe("unknown");
     expect(classifyError("")).toBe("unknown");
   });
+
+  it("classifies by HTTP status code when present", () => {
+    expect(classifyError("AI_APICallError", 429)).toBe("rate_limit");
+    expect(classifyError("AI_APICallError", 401)).toBe("auth");
+    expect(classifyError("AI_APICallError", 403)).toBe("auth");
+    expect(classifyError("AI_APICallError", 408)).toBe("timeout");
+    expect(classifyError("AI_APICallError", 504)).toBe("timeout");
+  });
+
+  it("prefers the status code over message wording", () => {
+    // A 429 stays rate_limit even if the body mentions a timeout.
+    expect(classifyError("AI_APICallError", 429, "upstream timed out")).toBe(
+      "rate_limit"
+    );
+  });
+
+  it("falls back to message wording when the status code is unmapped", () => {
+    expect(
+      classifyError("AI_APICallError", 400, "maximum context length is 8192")
+    ).toBe("context_length");
+  });
 });

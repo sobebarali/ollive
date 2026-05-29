@@ -21,16 +21,34 @@ const RULES: { pattern: RegExp; type: ErrorClass }[] = [
   { pattern: /abort|cancel/i, type: "cancelled" },
 ];
 
+/** HTTP status codes that map directly to a stable class, regardless of provider wording. */
+const STATUS_CLASS: Record<number, ErrorClass> = {
+  401: "auth",
+  403: "auth",
+  408: "timeout",
+  429: "rate_limit",
+  504: "timeout",
+};
+
 /**
- * Map a raw provider error name or message to a stable, low-cardinality `error_type`. Derived in the
- * worker so dashboards group errors consistently regardless of provider wording.
+ * Map a provider error to a stable, low-cardinality `error_type` so dashboards group errors
+ * consistently. The HTTP status from an AI SDK APICallError is the most reliable signal and wins;
+ * otherwise fall back to keyword rules over the error type name and message.
  */
-export function classifyError(raw: string | undefined): ErrorClass {
-  if (!raw) {
+export function classifyError(
+  type: string | undefined,
+  statusCode?: number,
+  message?: string
+): ErrorClass {
+  if (statusCode && STATUS_CLASS[statusCode]) {
+    return STATUS_CLASS[statusCode];
+  }
+  const text = [type, message].filter(Boolean).join(" ");
+  if (!text) {
     return "unknown";
   }
   for (const rule of RULES) {
-    if (rule.pattern.test(raw)) {
+    if (rule.pattern.test(text)) {
       return rule.type;
     }
   }

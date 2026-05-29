@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS inference_logs (
   stream                Bool,
   status                LowCardinality(String),
   error_type            String DEFAULT '',
+  error_message         String DEFAULT '',
+  error_status          UInt16 DEFAULT 0,
   input_preview         String,
   output_preview        String,
   cost_usd              Float64 DEFAULT 0,

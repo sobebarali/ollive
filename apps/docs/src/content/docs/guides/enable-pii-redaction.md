@@ -37,6 +37,10 @@ The default redactor masks common patterns before truncation:
 | Bearer token | `Bearer eyJhbGci...` → `[BEARER_TOKEN]` |
 | API key | `sk-...`, `AKIA...` → `[API_KEY]` |
 
+The same redactor and `LOG_PREVIEW_CHARS` truncation also run over the stored `error.message`
+(the provider's error body from an AI SDK `APICallError`), since failure responses can echo the
+prompt, request URLs, or key fragments. Error messages get the same protection as previews.
+
 ### 3. Add a custom rule
 
 Redaction rules are plain functions, applied in order. To add one, register it where the

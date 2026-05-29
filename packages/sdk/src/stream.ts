@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { InferenceStatus } from "./event";
 import {
   type CallMetadata,
+  errorMessage,
+  errorStatus,
   errorType,
   finalize,
   isAbortError,
@@ -57,7 +59,12 @@ export function streamLogger(context: LoggedContext): StreamLogger {
 
   function emit(
     status: InferenceStatus,
-    extra: { meta?: CallMetadata; errorType?: string }
+    extra: {
+      meta?: CallMetadata;
+      errorType?: string;
+      errorMessage?: string;
+      errorStatus?: number;
+    }
   ): void {
     if (emitted) {
       return;
@@ -72,6 +79,8 @@ export function streamLogger(context: LoggedContext): StreamLogger {
       ttftMs,
       meta: extra.meta,
       errorType: extra.errorType,
+      errorMessage: extra.errorMessage,
+      errorStatus: extra.errorStatus,
     });
   }
 
@@ -108,8 +117,11 @@ export function streamLogger(context: LoggedContext): StreamLogger {
       });
     },
     onError({ error }) {
-      emit(isAbortError(error) ? "cancelled" : "error", {
+      const aborted = isAbortError(error);
+      emit(aborted ? "cancelled" : "error", {
         errorType: errorType(error),
+        errorMessage: aborted ? undefined : errorMessage(error),
+        errorStatus: aborted ? undefined : errorStatus(error),
       });
     },
   };

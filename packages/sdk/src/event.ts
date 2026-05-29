@@ -25,6 +25,8 @@ export const inferenceEventSchema = z.object({
   stream: z.boolean(),
   status: z.enum(["success", "error", "cancelled"]),
   "error.type": z.string().optional(),
+  "error.message": z.string().optional(),
+  "error.status_code": uint32.optional(),
   input_preview: z.string(),
   output_preview: z.string(),
   start_time: z.iso.datetime(),
