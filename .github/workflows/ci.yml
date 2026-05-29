@@ -21,6 +21,7 @@ jobs:
       CLICKHOUSE_URL: http://localhost:8123
       REDIS_URL: redis://localhost:6379
       OPENROUTER_API_KEY: ci-placeholder
+      BYOK_ENCRYPTION_KEY: ci-placeholder-byok-key-at-least-32-characters
       BETTER_AUTH_SECRET: ci-placeholder-secret-at-least-32-characters
       BETTER_AUTH_URL: http://localhost:3000
       CORS_ORIGIN: http://localhost:5173
@@ -50,4 +51,4 @@ jobs:
       # DB/OpenRouter-backed api router tests) need PostgreSQL, ClickHouse, Valkey, and live
       # OpenRouter; run them locally with `docker compose up` + `bun run test:integration`.
       - name: Unit tests
-        run: bun test packages/sdk/src apps/server/src packages/api/src/models.test.ts
+        run: bun test packages/sdk/src apps/server/src packages/api/src/models.test.ts packages/api/src/crypto.test.ts
