@@ -11,6 +11,13 @@ export default defineConfig({
     host: true,
     port: Number(process.env.PORT) || 4321,
   },
+  // `astro preview` runs through Vite, which rejects unknown Host headers. Railway's proxy
+  // forwards an arbitrary *.up.railway.app host, so allow it here.
+  vite: {
+    preview: {
+      allowedHosts: true,
+    },
+  },
   integrations: [
     starlight({
       title: "Ollive Docs",
