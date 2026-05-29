@@ -8,7 +8,10 @@ const DEFAULT_PREVIEW_CHARS = 200;
 
 // Defined once at module scope; rebuilding these per call would be wasteful on the chat hot path.
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._-]+/gi;
-const API_KEY = /\b(?:sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16})\b/g;
+// `sk-` keys may carry internal hyphens/underscores (e.g. sk-proj-…, sk-svcacct_…); match the whole
+// run, anchored on alphanumerics, with a 16-char floor so ordinary "sk-" words are not caught.
+const API_KEY =
+  /\bsk-[A-Za-z0-9][A-Za-z0-9_-]{14,}[A-Za-z0-9]|\bAKIA[0-9A-Z]{16}\b/g;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const CREDIT_CARD = /\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{1,4}\b/g;
 const PHONE = /\+?\d[\d\s().-]{7,}\d/g;

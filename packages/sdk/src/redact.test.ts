@@ -35,6 +35,16 @@ describe("redactPreview masking", () => {
     expect(out).not.toContain("AKIAIOSFODNN7EXAMPLE");
   });
 
+  it("redacts prefixed API keys with internal hyphens/underscores", () => {
+    const out = redactPreview(
+      "rotate key sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX or sk-svcacct_0123456789abcdef",
+      opts
+    );
+    expect(out).toContain("[API_KEY]");
+    expect(out).not.toContain("sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX");
+    expect(out).not.toContain("sk-svcacct_0123456789abcdef");
+  });
+
   it("leaves clean text unchanged", () => {
     const clean = "The report covers three themes worth discussing.";
     expect(redactPreview(clean, opts)).toBe(clean);
