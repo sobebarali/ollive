@@ -82,7 +82,7 @@ function RouteComponent() {
               Inference logs
             </h1>
             <p className="text-muted-foreground text-sm">
-              Every model call captured in ClickHouse, newest first.
+              Every model call, newest first.
             </p>
           </div>
         </div>
@@ -177,8 +177,8 @@ function LogsBody({
     return (
       <Card>
         <CardContent className="py-10 text-center text-muted-foreground text-xs">
-          No inference logs in this window yet. Send a chat message, then check
-          back once the ingestion worker has processed it.
+          No data in this window yet. Send a chat message, then check back in a
+          few seconds.
         </CardContent>
       </Card>
     );

@@ -44,12 +44,12 @@ const FEATURES: Feature[] = [
   {
     icon: Activity,
     title: "Near-real-time ingestion",
-    body: "Events stream through Valkey to a worker that validates, redacts, prices, and stores them.",
+    body: "Each event is validated, redacted, priced, and stored moments after the call.",
   },
   {
     icon: Gauge,
     title: "Live dashboards",
-    body: "Throughput, latency percentiles, and error breakdowns over ClickHouse — per conversation.",
+    body: "Throughput, latency percentiles, and error breakdowns — per conversation.",
   },
   {
     icon: ShieldCheck,
@@ -166,8 +166,7 @@ function HomeComponent() {
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-6 text-muted-foreground text-sm sm:flex-row">
-          <span>© 2026 Ollive — inference logging system.</span>
-          <span>PostgreSQL · ClickHouse · Valkey</span>
+          <span>© 2026 Ollive</span>
         </div>
       </footer>
     </div>

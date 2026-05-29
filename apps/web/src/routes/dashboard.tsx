@@ -167,8 +167,8 @@ function DashboardContent({
     return (
       <Card>
         <CardContent className="py-10 text-center text-muted-foreground text-xs">
-          No inference logs in this window yet. Send a chat message, then check
-          back once the ingestion worker has processed it.
+          No data in this window yet. Send a chat message, then check back in a
+          few seconds.
         </CardContent>
       </Card>
     );

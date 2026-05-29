@@ -33,10 +33,8 @@ export function ConversationLogPanel({
           <Activity className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="font-medium text-sm">Inference logs</p>
-          <p className="truncate text-muted-foreground text-xs">
-            Live from ClickHouse
-          </p>
+          <p className="font-medium text-sm">Activity</p>
+          <p className="truncate text-muted-foreground text-xs">Updated live</p>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
@@ -62,7 +60,7 @@ function PanelBody({
   if (conversationId === null) {
     return (
       <p className="px-1 py-6 text-center text-muted-foreground text-xs">
-        Send a message to see its inference logs here.
+        Send a message to see its activity here.
       </p>
     );
   }
@@ -77,8 +75,7 @@ function PanelBody({
   if (!rows || rows.length === 0) {
     return (
       <p className="px-1 py-6 text-center text-muted-foreground text-xs">
-        No logs yet. They appear a few seconds after each reply, once the
-        ingestion worker has processed it.
+        Nothing yet. Activity appears a few seconds after each reply.
       </p>
     );
   }
