@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { config } from "dotenv";
@@ -6,6 +6,15 @@ import { config } from "dotenv";
 // These are integration tests against the local PostgreSQL from docker-compose. Load the server env
 // so @ollive/db can validate and connect before it is imported.
 config({ path: path.resolve(import.meta.dir, "../../../../apps/server/.env") });
+
+// Stub the model allow-list so these tests exercise conversation CRUD/ownership without depending on
+// OpenRouter's live, account-scoped catalog. `TEST_MODEL` is allowed; anything else is rejected.
+const TEST_MODEL = "openai/gpt-4.1";
+mock.module("../models", () => ({
+  isAllowedModel: (model: string) => Promise.resolve(model === TEST_MODEL),
+  getModelPrice: () => Promise.resolve(null),
+  listModels: () => Promise.resolve([]),
+}));
 
 const { db } = await import("@ollive/db");
 const { user } = await import("@ollive/db/schema/auth");
@@ -31,7 +40,7 @@ function defined<T>(value: T | null | undefined): T {
 function createFor(id: string) {
   return call(
     conversationRouter.create,
-    { model: "openai/gpt-4.1" },
+    { model: TEST_MODEL },
     { context: ctx(id) }
   ).then(defined);
 }
