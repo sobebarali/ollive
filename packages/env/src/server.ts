@@ -17,6 +17,8 @@ export const env = createEnv({
     CLICKHOUSE_URL: z.url(),
     REDIS_URL: redisUrlSchema,
     OPENROUTER_API_KEY: z.string().min(1),
+    BYOK_ENCRYPTION_KEY: z.string().min(32),
+    SHARED_KEY_LIMIT_USD: z.coerce.number().positive().default(1),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     CORS_ORIGIN: z.url(),
